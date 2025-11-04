@@ -26,6 +26,35 @@ export function getTMarksUrls(baseUrl?: string) {
     };
 }
 
+/**
+ * 标准化 API URL
+ * 确保 URL 包含 /api 后缀，用户可以输入基础 URL 或完整 API URL
+ * @param url 用户输入的 URL
+ * @returns 标准化后的 API URL
+ * 
+ * @example
+ * normalizeApiUrl('https://tmarks.669696.xyz') // => 'https://tmarks.669696.xyz/api'
+ * normalizeApiUrl('https://tmarks.669696.xyz/') // => 'https://tmarks.669696.xyz/api'
+ * normalizeApiUrl('https://tmarks.669696.xyz/api') // => 'https://tmarks.669696.xyz/api'
+ * normalizeApiUrl('https://tmarks.669696.xyz/api/') // => 'https://tmarks.669696.xyz/api'
+ */
+export function normalizeApiUrl(url: string): string {
+    if (!url) {
+        return TMARKS_URLS.DEFAULT_API_BASE;
+    }
+    
+    // 移除末尾的斜杠
+    const cleanUrl = url.trim().replace(/\/+$/, '');
+    
+    // 如果已经包含 /api，直接返回
+    if (cleanUrl.endsWith('/api')) {
+        return cleanUrl;
+    }
+    
+    // 否则添加 /api 后缀
+    return `${cleanUrl}/api`;
+}
+
 // AI 服务默认 URL
 export const AI_SERVICE_URLS = {
     OPENAI: 'https://api.openai.com/v1',

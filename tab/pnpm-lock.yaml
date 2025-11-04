@@ -17,6 +17,9 @@ importers:
       dompurify:
         specifier: ^3.2.7
         version: 3.2.7
+      lunar-javascript:
+        specifier: ^1.7.6
+        version: 1.7.6
       openai:
         specifier: ^6.1.0
         version: 6.1.0
@@ -1000,6 +1003,9 @@ packages:
 
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
+
+  lunar-javascript@1.7.6:
+    resolution: {integrity: sha512-gpARjH/I/TOWXBya+084L9XICi/tzDbTMy6g+f4xlynrqLx9zoK2r5jIeCTXAhe3KADpcZrjUvcXqer9WtKmBA==}
 
   magic-string@0.30.19:
     resolution: {integrity: sha512-2N21sPY9Ws53PZvsEpVtNuSW+ScYbQdp4b9qUaL+9QkHUrGFKo56Lg9Emg5s9V/qrtNBmiR01sYhUOwu3H+VOw==}
@@ -2248,6 +2254,8 @@ snapshots:
   lru-cache@5.1.1:
     dependencies:
       yallist: 3.1.1
+
+  lunar-javascript@1.7.6: {}
 
   magic-string@0.30.19:
     dependencies:

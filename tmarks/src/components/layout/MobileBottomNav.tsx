@@ -4,7 +4,7 @@
  */
 
 import { useNavigate, useLocation } from 'react-router-dom'
-import { BookOpen, Layers, Database, Settings } from 'lucide-react'
+import { BookOpen, Layers, Database, Download } from 'lucide-react'
 
 interface NavItem {
   id: string
@@ -38,10 +38,10 @@ export function MobileBottomNav() {
       path: '/import-export'
     },
     {
-      id: 'settings',
-      label: '设置',
-      icon: Settings,
-      path: '/api-keys'
+      id: 'extension',
+      label: '插件',
+      icon: Download,
+      path: '/extension'
     }
   ]
 

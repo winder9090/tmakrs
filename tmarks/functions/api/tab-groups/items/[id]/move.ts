@@ -74,7 +74,7 @@ export const onRequestPost: PagesFunction<Env, RouteParams, AuthContext>[] = [
         if (body.position !== undefined) {
           // 更新位置
           await context.env.DB.prepare(
-            'UPDATE tab_group_items SET position = ?, updated_at = datetime(\'now\') WHERE id = ?'
+            'UPDATE tab_group_items SET position = ? WHERE id = ?'
           )
             .bind(body.position, itemId)
             .run()
@@ -106,7 +106,7 @@ export const onRequestPost: PagesFunction<Env, RouteParams, AuthContext>[] = [
         // 4.2 更新标签页项的分组和位置
         await context.env.DB.prepare(
           `UPDATE tab_group_items 
-           SET group_id = ?, position = ?, updated_at = datetime('now') 
+           SET group_id = ?, position = ? 
            WHERE id = ?`
         )
           .bind(body.target_group_id, targetPosition, itemId)

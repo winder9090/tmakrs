@@ -1,5 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://tmarks.669696.xyz/sitemap.xml
-

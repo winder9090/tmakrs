@@ -1,5 +1,5 @@
 import { Outlet, useNavigate } from 'react-router-dom'
-import { BookOpen } from 'lucide-react'
+import { BookOpen, Download } from 'lucide-react'
 import { useThemeStore } from '@/stores/themeStore'
 import { ThemeToggle } from '@/components/common/ThemeToggle'
 import { ColorThemeSelector } from '@/components/common/ColorThemeSelector'
@@ -37,6 +37,24 @@ export function PublicAppShell() {
           <div className="flex items-center gap-1.5 sm:gap-2 md:gap-4">
             <ThemeToggle />
             <ColorThemeSelector />
+            
+            {/* 下载插件按钮 */}
+            <button
+              onClick={() => {
+                const link = document.createElement('a')
+                link.href = '/tmarks-extension.zip'
+                link.download = 'tmarks-extension.zip'
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
+              }}
+              className="hidden sm:flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 border border-border hover:border-primary hover:bg-card/50"
+              style={{color: 'var(--foreground)'}}
+              title="下载浏览器插件"
+            >
+              <Download className="w-4 h-4" />
+              <span className="hidden md:inline">插件</span>
+            </button>
             
             {/* 登录按钮 */}
             <button

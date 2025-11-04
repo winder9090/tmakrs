@@ -36,8 +36,8 @@ export function MoveItemDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-card border border-border rounded-lg shadow-xl w-full max-w-md mx-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="border border-border rounded-lg shadow-xl w-full max-w-md mx-4" style={{ backgroundColor: 'var(--card)' }}>
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="text-lg font-semibold text-foreground">移动标签页</h2>
@@ -69,11 +69,10 @@ export function MoveItemDialog({
                 <button
                   key={group.id}
                   onClick={() => setSelectedGroupId(group.id)}
-                  className={`w-full text-left p-3 rounded-lg border transition-all ${
-                    selectedGroupId === group.id
-                      ? 'border-primary bg-primary/10'
-                      : 'border-border hover:bg-muted'
-                  }`}
+                  className={`w-full text-left p-3 rounded-lg border-2 transition-all ${selectedGroupId === group.id
+                      ? 'border-primary shadow-md'
+                      : 'border-border hover:bg-muted hover:border-muted-foreground/20'
+                    }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
@@ -83,8 +82,10 @@ export function MoveItemDialog({
                       </p>
                     </div>
                     {selectedGroupId === group.id && (
-                      <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center flex-shrink-0 ml-2">
-                        <div className="w-2 h-2 rounded-full bg-white" />
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ml-2" style={{ backgroundColor: 'var(--primary)' }}>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" style={{ color: 'var(--primary-foreground)' }} />
+                        </svg>
                       </div>
                     )}
                   </div>

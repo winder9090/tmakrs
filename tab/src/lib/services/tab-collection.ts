@@ -7,7 +7,7 @@ import { db } from '@/lib/db';
 import { createTMarksClient } from '@/lib/api/tmarks';
 import type { TabGroupInput, TabGroupResult } from '@/types';
 import type { BookmarkSiteConfig } from '@/types';
-import { EXTERNAL_SERVICES } from '@/lib/constants/urls';
+import { EXTERNAL_SERVICES, normalizeApiUrl } from '@/lib/constants/urls';
 
 /**
  * Get all tabs in the current window
@@ -38,7 +38,7 @@ function getFaviconUrl(url: string): string {
   if (!url || typeof url !== 'string') {
     return '';
   }
-  
+
   try {
     const urlObj = new URL(url);
     return `${EXTERNAL_SERVICES.GOOGLE_FAVICON}?domain=${urlObj.hostname}&sz=32`;
@@ -91,7 +91,7 @@ export async function collectCurrentWindowTabs(
     // Try to sync to TMarks
     try {
       const client = createTMarksClient({
-        baseUrl: config.apiUrl,
+        baseUrl: normalizeApiUrl(config.apiUrl),
         apiKey: config.apiKey,
       });
 

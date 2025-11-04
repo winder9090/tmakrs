@@ -13,6 +13,8 @@ interface TagSidebarProps {
   onTagLayoutChange: (layout: 'grid' | 'masonry') => void
   readOnly?: boolean
   availableTags?: Tag[]
+  tagSortBy?: 'usage' | 'name'
+  onTagSortChange?: (sortBy: 'usage' | 'name') => void
 }
 
 export function TagSidebar({
@@ -23,14 +25,20 @@ export function TagSidebar({
   onTagLayoutChange,
   readOnly = false,
   availableTags,
+  tagSortBy: externalTagSortBy,
+  onTagSortChange,
 }: TagSidebarProps) {
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [showManageModal, setShowManageModal] = useState(false)
   const [newTagName, setNewTagName] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
-  const [sortBy, setSortBy] = useState<'usage' | 'name'>('usage')
+  const [internalSortBy, setInternalSortBy] = useState<'usage' | 'name'>('usage')
   const searchCleanupTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // 使用外部传入的 sortBy 或内部状态
+  const sortBy = externalTagSortBy !== undefined ? externalTagSortBy : internalSortBy
+  const setSortBy = onTagSortChange || setInternalSortBy
 
   const { data, isLoading } = useTags({ sort: sortBy }, { enabled: !availableTags })
   const createTag = useCreateTag()
@@ -109,17 +117,34 @@ export function TagSidebar({
       return new Set<string>()
     }
 
+    // 交集逻辑：只有与所有选中标签都共现的标签才算相关
+    if (selectedTags.length === 1) {
+      // 只选中一个标签时，返回其所有邻居
+      const neighbors = coOccurrenceMap.get(selectedTags[0]!)
+      if (!neighbors) return new Set<string>()
+      return new Set([...neighbors].filter(id => !selectedTags.includes(id)))
+    }
+
+    // 多个标签时，计算交集
+    const firstTagNeighbors = coOccurrenceMap.get(selectedTags[0]!)
+    if (!firstTagNeighbors) return new Set<string>()
+
     const related = new Set<string>()
 
-    for (const tagId of selectedTags) {
-      const neighbors = coOccurrenceMap.get(tagId)
-      if (!neighbors) continue
-      neighbors.forEach((neighborId) => {
-        if (!selectedTags.includes(neighborId)) {
-          related.add(neighborId)
-        }
+    // 遍历第一个标签的邻居
+    firstTagNeighbors.forEach((neighborId) => {
+      if (selectedTags.includes(neighborId)) return
+
+      // 检查这个邻居是否与所有选中的标签都共现
+      const isRelatedToAll = selectedTags.every((tagId) => {
+        const neighbors = coOccurrenceMap.get(tagId)
+        return neighbors && neighbors.has(neighborId)
       })
-    }
+
+      if (isRelatedToAll) {
+        related.add(neighborId)
+      }
+    })
 
     return related
   }, [selectedTags, coOccurrenceMap])
@@ -133,19 +158,23 @@ export function TagSidebar({
   }, [tags, debouncedSearchQuery])
 
   const orderedTags = useMemo(() => {
-    return filteredTags
-      .map((tag, index) => ({ tag, index }))
-      .sort((a, b) => {
-        const priority = (tag: Tag) =>
-          selectedTags.includes(tag.id) ? 0 : relatedTagIds.has(tag.id) ? 1 : 2
+    // 将标签分为三组：已选中、相关、其他
+    const selected: Tag[] = []
+    const related: Tag[] = []
+    const others: Tag[] = []
 
-        const priorityDiff = priority(a.tag) - priority(b.tag)
-        if (priorityDiff !== 0) {
-          return priorityDiff
-        }
-        return a.index - b.index
-      })
-      .map(({ tag }) => tag)
+    for (const tag of filteredTags) {
+      if (selectedTags.includes(tag.id)) {
+        selected.push(tag)
+      } else if (relatedTagIds.has(tag.id)) {
+        related.push(tag)
+      } else {
+        others.push(tag)
+      }
+    }
+
+    // 按优先级顺序合并，每组内保持原始排序
+    return [...selected, ...related, ...others]
   }, [filteredTags, selectedTags, relatedTagIds])
 
   const handleToggleTag = (tagId: string) => {
