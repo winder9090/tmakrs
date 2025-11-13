@@ -114,7 +114,13 @@ class HttpClient {
           }
         } catch {
           // 刷新失败，抛出原始的401错误
-          const data = await response.json().catch(() => ({ error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } }))
+          let data: any
+          try {
+            const text = await response.text()
+            data = text ? JSON.parse(text) : { error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } }
+          } catch {
+            data = { error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } }
+          }
           const apiError = data.error || { code: 'UNAUTHORIZED', message: 'Unauthorized' }
           throw new ApiError(apiError.code, apiError.message, response.status)
         }
@@ -125,7 +131,29 @@ class HttpClient {
         return { data: undefined as T }
       }
 
-      const data = await response.json()
+      // 尝试解析JSON响应
+      let data: any
+      try {
+        const text = await response.text()
+        if (!text || text.trim() === '') {
+          // 空响应体
+          if (!response.ok) {
+            throw new ApiError('EMPTY_RESPONSE', 'Server returned empty response', response.status)
+          }
+          return { data: undefined as T }
+        }
+        data = JSON.parse(text)
+      } catch (parseError) {
+        if (parseError instanceof ApiError) {
+          throw parseError
+        }
+        // JSON解析失败
+        throw new ApiError(
+          'INVALID_RESPONSE',
+          `Failed to parse server response: ${parseError instanceof Error ? parseError.message : 'Invalid JSON'}`,
+          response.status
+        )
+      }
 
       if (!response.ok) {
         const error = data.error || { code: 'UNKNOWN_ERROR', message: 'An error occurred' }
