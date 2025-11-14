@@ -9,7 +9,7 @@ import {
   PERMISSION_TEMPLATES,
   getPermissionLabel,
   type PermissionTemplate,
-} from '../../../shared/permissions'
+} from '@shared/permissions'
 import type { ApiKeyWithKey, CreateApiKeyRequest } from '@/services/api-keys'
 
 interface CreateApiKeyModalProps {

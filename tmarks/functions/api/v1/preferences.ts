@@ -10,6 +10,7 @@ interface UserPreferences {
   view_mode: 'list' | 'card' | 'minimal' | 'title'
   density: 'compact' | 'normal' | 'comfortable'
   tag_layout?: 'grid' | 'masonry'
+  sort_by?: 'created' | 'updated' | 'pinned' | 'popular'
   updated_at: string
 }
 
@@ -19,6 +20,7 @@ interface UpdatePreferencesRequest {
   view_mode?: 'list' | 'card' | 'minimal' | 'title'
   density?: 'compact' | 'normal' | 'comfortable'
   tag_layout?: 'grid' | 'masonry'
+  sort_by?: 'created' | 'updated' | 'pinned' | 'popular'
 }
 
 async function hasTagLayoutColumn(db: D1Database): Promise<boolean> {
@@ -27,6 +29,18 @@ async function hasTagLayoutColumn(db: D1Database): Promise<boolean> {
     return true
   } catch (error) {
     if (error instanceof Error && /no such column: tag_layout/i.test(error.message)) {
+      return false
+    }
+    throw error
+  }
+}
+
+async function hasSortByColumn(db: D1Database): Promise<boolean> {
+  try {
+    await db.prepare('SELECT sort_by FROM user_preferences LIMIT 1').first()
+    return true
+  } catch (error) {
+    if (error instanceof Error && /no such column: sort_by/i.test(error.message)) {
       return false
     }
     throw error
@@ -57,6 +71,7 @@ export const onRequestGet: PagesFunction<Env, RouteParams, AuthContext>[] = [
           view_mode: preferences.view_mode,
           density: preferences.density,
           tag_layout: preferences.tag_layout ?? 'grid',
+          sort_by: preferences.sort_by ?? 'popular',
           updated_at: preferences.updated_at,
         },
       })
@@ -75,6 +90,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
       const userId = context.data.user_id
       const body = await context.request.json() as UpdatePreferencesRequest
       const tagLayoutSupported = await hasTagLayoutColumn(context.env.DB)
+      const sortBySupported = await hasSortByColumn(context.env.DB)
 
       // 验证输入
       if (body.theme && !['light', 'dark'].includes(body.theme)) {
@@ -95,6 +111,10 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
 
       if (body.tag_layout && !['grid', 'masonry'].includes(body.tag_layout)) {
         return badRequest('Invalid tag layout value')
+      }
+
+      if (body.sort_by && !['created', 'updated', 'pinned', 'popular'].includes(body.sort_by)) {
+        return badRequest('Invalid sort_by value')
       }
 
       // 构建更新语句
@@ -126,8 +146,14 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
         values.push(body.tag_layout)
       }
 
+      if (body.sort_by !== undefined && sortBySupported) {
+        updates.push('sort_by = ?')
+        values.push(body.sort_by)
+      }
+
       if (updates.length === 0) {
-        if (body.tag_layout !== undefined && !tagLayoutSupported) {
+        if ((body.tag_layout !== undefined && !tagLayoutSupported) ||
+            (body.sort_by !== undefined && !sortBySupported)) {
           const preferences = await context.env.DB.prepare(
             'SELECT * FROM user_preferences WHERE user_id = ?'
           )
@@ -145,6 +171,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
               view_mode: preferences.view_mode,
               density: preferences.density,
               tag_layout: preferences.tag_layout ?? 'grid',
+              sort_by: preferences.sort_by ?? 'popular',
               updated_at: preferences.updated_at,
             },
           })
@@ -184,6 +211,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
           view_mode: preferences.view_mode,
           density: preferences.density,
           tag_layout: preferences.tag_layout ?? 'grid',
+          sort_by: preferences.sort_by ?? 'popular',
           updated_at: preferences.updated_at,
         },
       })

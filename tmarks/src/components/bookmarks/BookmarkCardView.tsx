@@ -8,12 +8,18 @@ interface BookmarkCardViewProps {
   bookmarks: Bookmark[]
   onEdit?: (bookmark: Bookmark) => void
   readOnly?: boolean
+  batchMode?: boolean
+  selectedIds?: string[]
+  onToggleSelect?: (id: string) => void
 }
 
 export function BookmarkCardView({
   bookmarks,
   onEdit,
   readOnly = false,
+  batchMode = false,
+  selectedIds = [],
+  onToggleSelect,
 }: BookmarkCardViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [columns, setColumns] = useState(1)
@@ -71,6 +77,9 @@ export function BookmarkCardView({
             bookmark={bookmark}
             onEdit={onEdit ? () => onEdit(bookmark) : undefined}
             readOnly={readOnly}
+            batchMode={batchMode}
+            isSelected={selectedIds.includes(bookmark.id)}
+            onToggleSelect={onToggleSelect}
           />
         </div>
       ))}
@@ -82,12 +91,18 @@ interface BookmarkCardProps {
   bookmark: Bookmark
   onEdit?: () => void
   readOnly?: boolean
+  batchMode?: boolean
+  isSelected?: boolean
+  onToggleSelect?: (id: string) => void
 }
 
 function BookmarkCard({
   bookmark,
   onEdit,
   readOnly = false,
+  batchMode = false,
+  isSelected = false,
+  onToggleSelect,
 }: BookmarkCardProps) {
   const [imageType, setImageType] = useState<ImageType>('unknown')
   const recordClick = useRecordClick()
@@ -101,22 +116,56 @@ function BookmarkCard({
     window.open(bookmark.url, '_blank', 'noopener,noreferrer')
   }
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (batchMode && onToggleSelect) {
+      e.preventDefault()
+      onToggleSelect(bookmark.id)
+    } else {
+      handleVisit()
+    }
+  }
+
   return (
     <div
-      className="card hover:shadow-xl transition-all relative group flex flex-col cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/60 touch-manipulation"
+      className={`card hover:shadow-xl transition-all relative group flex flex-col cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/60 touch-manipulation ${
+        batchMode && isSelected ? 'ring-2 ring-primary' : ''
+      }`}
       role="link"
       tabIndex={0}
-      onClick={handleVisit}
+      onClick={handleCardClick}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault()
-          handleVisit()
+          if (batchMode && onToggleSelect) {
+            onToggleSelect(bookmark.id)
+          } else {
+            handleVisit()
+          }
         }
       }}
       aria-label={`打开书签 ${bookmark.title}`}
     >
+      {/* 批量选择复选框 */}
+      {batchMode && onToggleSelect && (
+        <div className="absolute top-2 left-2 sm:top-3 sm:left-3 z-10">
+          <div
+            className={`w-6 h-6 rounded flex items-center justify-center transition-all ${
+              isSelected
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-card border-2 border-border'
+            }`}
+          >
+            {isSelected && (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* 编辑按钮 */}
-      {!!onEdit && !readOnly && (
+      {!!onEdit && !readOnly && !batchMode && (
         <button
           onClick={(event) => {
             event.stopPropagation()

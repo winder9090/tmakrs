@@ -341,7 +341,7 @@ select.input option {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  z-index: 999;
+  z-index: 200; /* 使用统一的模态框层级 */
   padding: 1rem;
   background: transparent;
   border: none;

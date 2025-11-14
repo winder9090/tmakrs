@@ -1,4 +1,6 @@
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
+import { Z_INDEX } from '@/lib/constants/z-index'
 
 interface AlertDialogProps {
   isOpen: boolean
@@ -66,8 +68,8 @@ export function AlertDialog({
 
   const styles = getTypeStyles()
 
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fade-in">
+  const dialogContent = (
+    <div className="fixed inset-0 flex items-center justify-center p-4 animate-fade-in" style={{ zIndex: Z_INDEX.ALERT_DIALOG }}>
       {/* 背景遮罩 - 用于点击关闭 */}
       <div
         className="absolute inset-0 bg-background/80 backdrop-blur-sm"
@@ -115,4 +117,6 @@ export function AlertDialog({
       </div>
     </div>
   )
+
+  return createPortal(dialogContent, document.body)
 }

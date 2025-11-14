@@ -11,6 +11,9 @@ interface BookmarkListContainerProps {
   onEdit?: (bookmark: Bookmark) => void
   readOnly?: boolean
   previousCount?: number
+  batchMode?: boolean
+  selectedIds?: string[]
+  onToggleSelect?: (id: string) => void
 }
 
 export function BookmarkListContainer({
@@ -20,6 +23,9 @@ export function BookmarkListContainer({
   onEdit,
   readOnly = false,
   previousCount = 0,
+  batchMode = false,
+  selectedIds = [],
+  onToggleSelect,
 }: BookmarkListContainerProps) {
 
   if (isLoading && bookmarks.length === 0) {
@@ -74,16 +80,36 @@ export function BookmarkListContainer({
           bookmarks={bookmarks}
           onEdit={onEdit}
           readOnly={readOnly}
+          batchMode={batchMode}
+          selectedIds={selectedIds}
+          onToggleSelect={onToggleSelect}
         />
       ) : viewMode === 'minimal' ? (
-        <BookmarkMinimalListView bookmarks={bookmarks} onEdit={onEdit} readOnly={readOnly} />
+        <BookmarkMinimalListView
+          bookmarks={bookmarks}
+          onEdit={onEdit}
+          readOnly={readOnly}
+          batchMode={batchMode}
+          selectedIds={selectedIds}
+          onToggleSelect={onToggleSelect}
+        />
       ) : viewMode === 'title' ? (
-        <BookmarkTitleView bookmarks={bookmarks} onEdit={onEdit} readOnly={readOnly} />
+        <BookmarkTitleView
+          bookmarks={bookmarks}
+          onEdit={onEdit}
+          readOnly={readOnly}
+          batchMode={batchMode}
+          selectedIds={selectedIds}
+          onToggleSelect={onToggleSelect}
+        />
       ) : (
         <BookmarkCardView
           bookmarks={bookmarks}
           onEdit={onEdit}
           readOnly={readOnly}
+          batchMode={batchMode}
+          selectedIds={selectedIds}
+          onToggleSelect={onToggleSelect}
         />
       )}
     </>

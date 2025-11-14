@@ -4,17 +4,18 @@
  */
 
 import { useState, useRef } from 'react'
-import { Upload, FileText, Code, CheckCircle, Loader2, FileCode, ArrowRight } from 'lucide-react'
+import { Upload, FileText, Code, CheckCircle, Loader2, ArrowRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { DragDropUpload } from '../common/DragDropUpload'
 import { ProgressIndicator } from '../common/ProgressIndicator'
 import { ErrorDisplay } from '../common/ErrorDisplay'
+import { useAuthStore } from '@/stores/authStore'
 import type {
   ImportFormat,
   ImportOptions,
   ImportResult,
   ValidationResult
-} from '../../../shared/import-export-types'
+} from '@shared/import-export-types'
 
 interface ImportSectionProps {
   onImport?: (result: ImportResult) => void
@@ -60,18 +61,10 @@ export function ImportSection({ onImport }: ImportSectionProps) {
     {
       value: 'json' as ImportFormat,
       label: 'JSON',
-      description: 'JSON 格式的书签数据',
+      description: 'TMarks 标准格式，包含完整数据',
       icon: Code,
       extensions: ['.json'],
-      recommended: false
-    },
-    {
-      value: 'markdown' as ImportFormat,
-      label: 'Markdown',
-      description: 'Markdown 格式的书签列表',
-      icon: FileCode,
-      extensions: ['.md', '.markdown'],
-      recommended: false
+      recommended: true
     }
   ]
 
@@ -143,10 +136,14 @@ export function ImportSection({ onImport }: ImportSectionProps) {
 
     try {
       const content = await selectedFile.text()
-      
+
+      const token = useAuthStore.getState().accessToken
       const response = await fetch('/api/v1/import', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({
           format: selectedFormat,
           content,
@@ -156,7 +153,7 @@ export function ImportSection({ onImport }: ImportSectionProps) {
 
       if (!response.ok) {
         const error = await response.json()
-        throw new Error(error.message || '导入失败')
+        throw new Error(error.message || 'Import failed')
       }
 
       const result: ImportResult = await response.json()

@@ -141,6 +141,7 @@ export interface TagsResponse {
 
 // 用户偏好类型
 export type TagLayoutPreference = 'grid' | 'masonry'
+export type SortByPreference = 'created' | 'updated' | 'pinned' | 'popular'
 
 export interface UserPreferences {
   theme: 'light' | 'dark'
@@ -148,6 +149,7 @@ export interface UserPreferences {
   view_mode: 'list' | 'card' | 'minimal' | 'title'
   density: 'compact' | 'normal' | 'comfortable'
   tag_layout: TagLayoutPreference
+  sort_by: SortByPreference
   updated_at: string
 }
 
@@ -157,6 +159,7 @@ export interface UpdatePreferencesRequest {
   view_mode?: 'list' | 'card' | 'minimal' | 'title'
   density?: 'compact' | 'normal' | 'comfortable'
   tag_layout?: TagLayoutPreference
+  sort_by?: SortByPreference
 }
 
 export interface PreferencesResponse {

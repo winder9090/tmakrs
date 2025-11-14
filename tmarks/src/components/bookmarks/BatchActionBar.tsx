@@ -4,6 +4,7 @@ import { useBatchAction } from '@/hooks/useBookmarks'
 import { useTags } from '@/hooks/useTags'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { AlertDialog } from '@/components/common/AlertDialog'
+import { Z_INDEX } from '@/lib/constants/z-index'
 
 interface BatchActionBarProps {
   selectedIds: string[]
@@ -18,7 +19,7 @@ export function BatchActionBar({
 }: BatchActionBarProps) {
   const [showTagMenu, setShowTagMenu] = useState(false)
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([])
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [showErrorAlert, setShowErrorAlert] = useState(false)
   const [showSuccessAlert, setShowSuccessAlert] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
@@ -31,9 +32,10 @@ export function BatchActionBar({
   const handleAction = async (action: BatchActionType) => {
     if (selectedIds.length === 0) return
 
-    if (action === 'delete') {
+    // 需要确认的操作
+    if (action === 'delete' || action === 'pin' || action === 'archive') {
       setPendingAction(action)
-      setShowDeleteConfirm(true)
+      setShowConfirmDialog(true)
       return
     }
 
@@ -69,11 +71,45 @@ export function BatchActionBar({
     }
   }
 
-  const handleConfirmDelete = async () => {
-    setShowDeleteConfirm(false)
+  const handleConfirm = async () => {
+    setShowConfirmDialog(false)
     if (pendingAction) {
       await executeAction(pendingAction)
       setPendingAction(null)
+    }
+  }
+
+  const handleCancel = () => {
+    setShowConfirmDialog(false)
+    setPendingAction(null)
+  }
+
+  const getConfirmDialogConfig = () => {
+    switch (pendingAction) {
+      case 'delete':
+        return {
+          title: '批量删除',
+          message: `确定要删除这 ${selectedIds.length} 个书签吗？`,
+          type: 'warning' as const,
+        }
+      case 'pin':
+        return {
+          title: '批量置顶',
+          message: `确定要置顶这 ${selectedIds.length} 个书签吗？`,
+          type: 'info' as const,
+        }
+      case 'archive':
+        return {
+          title: '批量归档',
+          message: `确定要归档这 ${selectedIds.length} 个书签吗？`,
+          type: 'info' as const,
+        }
+      default:
+        return {
+          title: '确认操作',
+          message: '确定要执行此操作吗？',
+          type: 'info' as const,
+        }
     }
   }
 
@@ -111,7 +147,7 @@ export function BatchActionBar({
   }
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-slide-up">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 animate-slide-up" style={{ zIndex: Z_INDEX.BATCH_ACTION_BAR }}>
       <div className="card bg-primary text-primary-content shadow-2xl">
         <div className="flex items-center gap-4">
           {/* 选中计数 */}
@@ -153,7 +189,10 @@ export function BatchActionBar({
               </button>
 
               {showTagMenu && (
-                <div className="absolute bottom-full mb-2 left-0 w-64 bg-card text-base-content rounded-lg shadow-xl p-3">
+                <div
+                  className="absolute bottom-full mb-2 left-0 w-64 text-base-content rounded-lg shadow-xl p-3 border"
+                  style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}
+                >
                   <div className="text-sm font-medium mb-2">选择标签</div>
                   <div className="max-h-48 overflow-y-auto space-y-1 mb-3">
                     {tags.map((tag) => (
@@ -171,7 +210,7 @@ export function BatchActionBar({
                       </label>
                     ))}
                   </div>
-                  <div className="flex gap-2 border-t border-border pt-2">
+                  <div className="flex gap-2 border-t pt-2" style={{ borderColor: 'var(--border)' }}>
                     <button
                       onClick={() => handleUpdateTags('add')}
                       className="btn btn-sm flex-1"
@@ -215,18 +254,17 @@ export function BatchActionBar({
         </div>
       </div>
 
-      {/* 删除确认对话框 */}
-      <ConfirmDialog
-        isOpen={showDeleteConfirm}
-        title="批量删除"
-        message={`确定要删除这 ${selectedIds.length} 个书签吗？`}
-        type="warning"
-        onConfirm={handleConfirmDelete}
-        onCancel={() => {
-          setShowDeleteConfirm(false)
-          setPendingAction(null)
-        }}
-      />
+      {/* 确认对话框 */}
+      {pendingAction && (
+        <ConfirmDialog
+          isOpen={showConfirmDialog}
+          title={getConfirmDialogConfig().title}
+          message={getConfirmDialogConfig().message}
+          type={getConfirmDialogConfig().type}
+          onConfirm={handleConfirm}
+          onCancel={handleCancel}
+        />
+      )}
 
       {/* 成功提示对话框 */}
       <AlertDialog

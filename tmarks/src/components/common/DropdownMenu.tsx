@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { Z_INDEX } from '@/lib/constants/z-index'
 
 export interface MenuItem {
   label: string
@@ -70,7 +71,7 @@ export function DropdownMenu({ trigger, items, align = 'right' }: DropdownMenuPr
             top: `${menuPosition.top}px`,
             left: align === 'left' ? `${menuPosition.left}px` : 'auto',
             right: align === 'right' ? `${menuPosition.right}px` : 'auto',
-            zIndex: 999999,
+            zIndex: Z_INDEX.DROPDOWN,
             backgroundColor: 'var(--card)',
             borderColor: 'var(--border)'
           }}

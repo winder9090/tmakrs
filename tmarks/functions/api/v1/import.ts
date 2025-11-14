@@ -4,8 +4,8 @@
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'
-import type { Env } from '../../lib/types'
-import type { AuthContext } from '../../middleware/auth'
+import type { Env, RouteParams } from '../../lib/types'
+import { requireAuth, type AuthContext } from '../../middleware/auth'
 import type {
   ImportFormat,
   ImportOptions,
@@ -16,7 +16,6 @@ import type {
 
 import { createHtmlParser } from '../../lib/import-export/parsers/html-parser'
 import { createJsonParser } from '../../lib/import-export/parsers/json-parser'
-import { createMarkdownParser } from '../../lib/import-export/parsers/markdown-parser'
 import { DEFAULT_IMPORT_OPTIONS } from '../../../shared/import-export-types'
 
 interface ImportRequest {
@@ -25,87 +24,65 @@ interface ImportRequest {
   options?: Partial<ImportOptions>
 }
 
-export const onRequestPost: PagesFunction<Env> = async (context) => {
-  try {
-    // 尝试从不同的认证方式获取用户ID
-    let userId = context.data.user_id
+export const onRequestPost: PagesFunction<Env, RouteParams, AuthContext>[] = [
+  requireAuth,
+  async (context) => {
+    try {
+      const userId = context.data.user_id
 
-    // 如果没有用户ID，尝试查找数据库中的第一个用户
-    if (!userId) {
-      try {
-        interface UserRow {
-          id: string
-          username: string
-          email: string | null
-        }
-        
-        const { results: users } = await context.env.DB.prepare(
-          'SELECT id, username, email FROM users ORDER BY created_at ASC LIMIT 1'
-        ).all<UserRow>()
+      const { format, content, options: userOptions } = await context.request.json() as ImportRequest
 
-        if (users && users.length > 0) {
-          userId = users[0].id
-        } else {
-          userId = 'default-user'
-        }
-      } catch (error) {
-        console.error('Failed to query users:', error)
-        userId = 'default-user'
+      if (!content || !format) {
+        return new Response(
+          JSON.stringify({ error: 'Missing required fields: format and content' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        )
       }
-    }
 
-    const { format, content, options: userOptions } = await context.request.json() as ImportRequest
+      // 合并导入选项
+      const options: ImportOptions = { ...DEFAULT_IMPORT_OPTIONS, ...userOptions }
 
-    if (!content || !format) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: format and content' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      // 解析导入数据
+      const importData = await parseImportData(format, content)
+
+      // 验证数据
+      const validation = await validateImportData(format, importData)
+      if (!validation.valid) {
+        return new Response(
+          JSON.stringify({
+            error: 'Validation failed',
+            errors: validation.errors,
+            warnings: validation.warnings
+          }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // 执行导入
+      const result = await performImport(
+        context.env.DB,
+        userId,
+        importData,
+        options
       )
-    }
 
-    // 合并导入选项
-    const options: ImportOptions = { ...DEFAULT_IMPORT_OPTIONS, ...userOptions }
-
-    // 解析导入数据
-    const importData = await parseImportData(format, content)
-
-    // 验证数据
-    const validation = await validateImportData(format, importData)
-    if (!validation.valid) {
       return new Response(
-        JSON.stringify({ 
-          error: 'Validation failed', 
-          errors: validation.errors,
-          warnings: validation.warnings 
+        JSON.stringify(result),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+
+    } catch (error) {
+      console.error('Import error:', error)
+      return new Response(
+        JSON.stringify({
+          error: 'Import failed',
+          message: error instanceof Error ? error.message : 'Unknown error'
         }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
     }
-
-    // 执行导入
-    const result = await performImport(
-      context.env.DB,
-      userId,
-      importData,
-      options
-    )
-
-    return new Response(
-      JSON.stringify(result),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    )
-
-  } catch (error) {
-    console.error('Import error:', error)
-    return new Response(
-      JSON.stringify({ 
-        error: 'Import failed', 
-        message: error instanceof Error ? error.message : 'Unknown error' 
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    )
   }
-}
+]
 
 /**
  * 解析导入数据
@@ -115,11 +92,6 @@ async function parseImportData(format: ImportFormat, content: string) {
     case 'html': {
       const htmlParser = createHtmlParser()
       return await htmlParser.parse(content)
-    }
-
-    case 'markdown': {
-      const markdownParser = createMarkdownParser()
-      return await markdownParser.parse(content)
     }
 
     case 'json':
@@ -141,11 +113,6 @@ async function validateImportData(format: ImportFormat, data: any) {
     case 'html': {
       const htmlParser = createHtmlParser()
       return await htmlParser.validate(data)
-    }
-
-    case 'markdown': {
-      const markdownParser = createMarkdownParser()
-      return await markdownParser.validate(data)
     }
 
     case 'json':
@@ -486,48 +453,43 @@ function chunkArray<T>(array: T[], chunkSize: number): T[][] {
 /**
  * 获取导入预览
  */
-export const onRequestGet: PagesFunction<Env> = async (context) => {
-  try {
-    const authContext = context.data.auth as AuthContext
-    if (!authContext?.user) {
+export const onRequestGet: PagesFunction<Env, RouteParams, AuthContext>[] = [
+  requireAuth,
+  async (context) => {
+    try {
+      const { searchParams } = new URL(context.request.url)
+      const format = searchParams.get('format') as ImportFormat
+      // const preview = searchParams.get('preview') === 'true' // 预留用于未来实现预览功能
+
+      if (!format) {
+        return new Response(
+          JSON.stringify({ error: 'Missing format parameter' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // 返回支持的格式信息
+      const formatInfo = {
+        format,
+        supported: ['html', 'json', 'tmarks'].includes(format),
+        description: getFormatDescription(format),
+        file_extensions: getFormatExtensions(format)
+      }
+
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify(formatInfo),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+
+    } catch (error) {
+      console.error('Import preview error:', error)
+      return new Response(
+        JSON.stringify({ error: 'Failed to get import preview' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
     }
-
-    const { searchParams } = new URL(context.request.url)
-    const format = searchParams.get('format') as ImportFormat
-    // const preview = searchParams.get('preview') === 'true' // 预留用于未来实现预览功能
-
-    if (!format) {
-      return new Response(
-        JSON.stringify({ error: 'Missing format parameter' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // 返回支持的格式信息
-    const formatInfo = {
-      format,
-      supported: ['html', 'json', 'tmarks'].includes(format),
-      description: getFormatDescription(format),
-      file_extensions: getFormatExtensions(format)
-    }
-
-    return new Response(
-      JSON.stringify(formatInfo),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    )
-
-  } catch (error) {
-    console.error('Import preview error:', error)
-    return new Response(
-      JSON.stringify({ error: 'Failed to get import preview' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    )
   }
-}
+]
 
 function getFormatDescription(format: ImportFormat): string {
   switch (format) {

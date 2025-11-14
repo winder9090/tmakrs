@@ -7,7 +7,8 @@ import { useState } from 'react'
 import { Download, FileText, Code, Loader2 } from 'lucide-react'
 import { ProgressIndicator } from '../common/ProgressIndicator'
 import { ErrorDisplay } from '../common/ErrorDisplay'
-import type { ExportFormat, ExportOptions } from '../../../shared/import-export-types'
+import { useAuthStore } from '@/stores/authStore'
+import type { ExportFormat, ExportOptions } from '@shared/import-export-types'
 
 interface ExportSectionProps {
   onExport?: (format: ExportFormat, options: ExportOptions) => void
@@ -43,12 +44,16 @@ export function ExportSection({ onExport }: ExportSectionProps) {
   // 获取导出预览信息
   const fetchExportPreview = async () => {
     try {
+      const token = useAuthStore.getState().accessToken
       const response = await fetch('/api/v1/export', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ format: selectedFormat })
       })
-      
+
       if (response.ok) {
         const data = await response.json()
         setExportStats(data.stats)
@@ -77,7 +82,10 @@ export function ExportSection({ onExport }: ExportSectionProps) {
 
       setExportProgress({ current: 25, total: 100, status: '正在生成导出数据...' })
 
-      const response = await fetch(`/api/v1/export?${params}`)
+      const token = useAuthStore.getState().accessToken
+      const response = await fetch(`/api/v1/export?${params}`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      })
 
       if (!response.ok) {
         const error = await response.json()

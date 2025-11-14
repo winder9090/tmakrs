@@ -4,11 +4,11 @@
  */
 
 import type { PagesFunction } from '@cloudflare/workers-types'
-import type { Env } from '../../lib/types'
-import type { AuthContext } from '../../middleware/auth'
-import type { 
-  ExportFormat, 
-  TMarksExportData, 
+import type { Env, RouteParams } from '../../lib/types'
+import { requireAuth, type AuthContext } from '../../middleware/auth'
+import type {
+  ExportFormat,
+  TMarksExportData,
   ExportOptions,
   ExportBookmark,
   ExportTag,
@@ -24,99 +24,77 @@ interface ExportRequest {
   options?: ExportOptions
 }
 
-export const onRequestGet: PagesFunction<Env> = async (context) => {
-  try {
-    // 尝试从不同的认证方式获取用户ID
-    let userId = context.data.user_id
+export const onRequestGet: PagesFunction<Env, RouteParams, AuthContext>[] = [
+  requireAuth,
+  async (context) => {
+    try {
+      const userId = context.data.user_id
 
-    // 如果没有用户ID，尝试查找数据库中的第一个用户
-    if (!userId) {
-      try {
-        interface UserRow {
-          id: string
-          username: string
-          email: string | null
+      const { searchParams } = new URL(context.request.url)
+      const format = (searchParams.get('format') || 'json') as ExportFormat
+      const includeMetadata = searchParams.get('include_metadata') !== 'false'
+      const includeTags = searchParams.get('include_tags') !== 'false'
+      const prettyPrint = searchParams.get('pretty_print') !== 'false'
+
+      // 构建导出选项
+      const options: ExportOptions = {
+        include_tags: includeTags,
+        include_metadata: includeMetadata,
+        format_options: {
+          pretty_print: prettyPrint,
+          include_click_stats: searchParams.get('include_stats') === 'true',
+          include_user_info: searchParams.get('include_user') === 'true'
         }
-        
-        const { results: users } = await context.env.DB.prepare(
-          'SELECT id, username, email FROM users ORDER BY created_at ASC LIMIT 1'
-        ).all<UserRow>()
+      }
 
-        if (users && users.length > 0) {
-          userId = users[0].id
-        } else {
-          userId = 'default-user'
+      // 获取用户数据
+      const exportData = await collectUserData(context.env.DB, userId)
+
+      // 根据格式选择导出器
+      let result
+      switch (format) {
+        case 'json': {
+          const jsonExporter = createJsonExporter()
+          result = await jsonExporter.export(exportData, options)
+          break
         }
-      } catch (error) {
-        console.error('Failed to query users:', error)
-        userId = 'default-user'
+
+        case 'html': {
+          const htmlExporter = createHtmlExporter()
+          result = await htmlExporter.export(exportData, options)
+          break
+        }
+
+        default:
+          return new Response(
+            JSON.stringify({ error: `Unsupported export format: ${format}` }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } }
+          )
       }
+
+      // 返回导出文件
+      return new Response(result.content, {
+        status: 200,
+        headers: {
+          'Content-Type': result.mimeType,
+          'Content-Disposition': `attachment; filename="${result.filename}"`,
+          'Content-Length': result.size.toString(),
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
+        }
+      })
+
+    } catch (error) {
+      console.error('Export error:', error)
+      return new Response(
+        JSON.stringify({
+          error: 'Export failed',
+          message: error instanceof Error ? error.message : 'Unknown error'
+        }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
     }
-
-    const { searchParams } = new URL(context.request.url)
-    const format = (searchParams.get('format') || 'json') as ExportFormat
-    const includeMetadata = searchParams.get('include_metadata') !== 'false'
-    const includeTags = searchParams.get('include_tags') !== 'false'
-    const prettyPrint = searchParams.get('pretty_print') !== 'false'
-
-    // 构建导出选项
-    const options: ExportOptions = {
-      include_tags: includeTags,
-      include_metadata: includeMetadata,
-      format_options: {
-        pretty_print: prettyPrint,
-        include_click_stats: searchParams.get('include_stats') === 'true',
-        include_user_info: searchParams.get('include_user') === 'true'
-      }
-    }
-
-    // 获取用户数据
-    const exportData = await collectUserData(context.env.DB, userId)
-
-    // 根据格式选择导出器
-    let result
-    switch (format) {
-      case 'json': {
-        const jsonExporter = createJsonExporter()
-        result = await jsonExporter.export(exportData, options)
-        break
-      }
-
-      case 'html': {
-        const htmlExporter = createHtmlExporter()
-        result = await htmlExporter.export(exportData, options)
-        break
-      }
-
-      default:
-        return new Response(
-          JSON.stringify({ error: `Unsupported export format: ${format}` }),
-          { status: 400, headers: { 'Content-Type': 'application/json' } }
-        )
-    }
-
-    // 返回导出文件
-    return new Response(result.content, {
-      status: 200,
-      headers: {
-        'Content-Type': result.mimeType,
-        'Content-Disposition': `attachment; filename="${result.filename}"`,
-        'Content-Length': result.size.toString(),
-        'Cache-Control': 'no-cache, no-store, must-revalidate'
-      }
-    })
-
-  } catch (error) {
-    console.error('Export error:', error)
-    return new Response(
-      JSON.stringify({ 
-        error: 'Export failed', 
-        message: error instanceof Error ? error.message : 'Unknown error' 
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    )
   }
-}
+]
 
 /**
  * 收集用户的所有数据用于导出
@@ -243,45 +221,41 @@ async function collectUserData(db: D1Database, userId: string): Promise<TMarksEx
 /**
  * 获取导出预览信息
  */
-export const onRequestPost: PagesFunction<Env> = async (context) => {
-  try {
-    const authContext = context.data.auth as AuthContext
-    if (!authContext?.user) {
+export const onRequestPost: PagesFunction<Env, RouteParams, AuthContext>[] = [
+  requireAuth,
+  async (context) => {
+    try {
+      const userId = context.data.user_id
+      const { format = 'json' } = await context.request.json() as ExportRequest
+
+      // 获取统计信息
+      const stats = await getExportStats(context.env.DB, userId)
+
+      // 估算文件大小
+      const estimatedSize = estimateExportSize(stats, format)
+
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          stats,
+          estimated_size: estimatedSize,
+          format,
+          estimated_filename: generateFilename(format)
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      )
+
+    } catch (error) {
+      console.error('Export preview error:', error)
+      return new Response(
+        JSON.stringify({ error: 'Failed to get export preview' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
     }
-
-    const { format = 'json' } = await context.request.json() as ExportRequest
-
-    // 获取统计信息
-    const stats = await getExportStats(context.env.DB, authContext.user.id)
-
-    // 估算文件大小
-    const estimatedSize = estimateExportSize(stats, format)
-
-    return new Response(
-      JSON.stringify({
-        stats,
-        estimated_size: estimatedSize,
-        format,
-        estimated_filename: generateFilename(format)
-      }),
-      { 
-        status: 200, 
-        headers: { 'Content-Type': 'application/json' } 
-      }
-    )
-
-  } catch (error) {
-    console.error('Export preview error:', error)
-    return new Response(
-      JSON.stringify({ error: 'Failed to get export preview' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    )
   }
-}
+]
 
 async function getExportStats(db: D1Database, userId: string) {
   interface CountRow {

@@ -4,7 +4,7 @@
  */
 
 import { useApiKey, useApiKeyLogs } from '@/hooks/useApiKeys'
-import { getPermissionLabel } from '../../../shared/permissions'
+import { getPermissionLabel } from '@shared/permissions'
 import type { ApiKey } from '@/services/api-keys'
 import { formatDistanceToNow } from 'date-fns'
 import { zhCN } from 'date-fns/locale'

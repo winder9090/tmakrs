@@ -64,10 +64,25 @@ CREATE TABLE IF NOT EXISTS bookmarks (
   UNIQUE(user_id, url)
 );
 
+-- 基础索引
 CREATE INDEX idx_bookmarks_user_created ON bookmarks(user_id, created_at DESC);
 CREATE INDEX idx_bookmarks_user_url ON bookmarks(user_id, url);
 CREATE INDEX idx_bookmarks_url ON bookmarks(url);
 CREATE INDEX idx_bookmarks_user_deleted ON bookmarks(user_id, deleted_at);
+
+-- 复合索引 - 归档筛选 + 排序优化
+CREATE INDEX idx_bookmarks_user_archived_created ON bookmarks(user_id, is_archived, created_at DESC);
+CREATE INDEX idx_bookmarks_user_archived_updated ON bookmarks(user_id, is_archived, updated_at DESC);
+CREATE INDEX idx_bookmarks_user_archived_pinned_created ON bookmarks(user_id, is_archived, is_pinned DESC, created_at DESC);
+CREATE INDEX idx_bookmarks_user_archived_pinned_updated ON bookmarks(user_id, is_archived, is_pinned DESC, updated_at DESC);
+
+-- 复合索引 - 热门排序优化
+CREATE INDEX idx_bookmarks_user_archived_pinned_clicks ON bookmarks(user_id, is_archived, is_pinned DESC, click_count DESC, last_clicked_at DESC);
+
+-- 复合索引 - 删除状态筛选
+CREATE INDEX idx_bookmarks_user_deleted_created ON bookmarks(user_id, deleted_at, created_at DESC) WHERE deleted_at IS NULL;
+
+-- 旧索引（保留兼容性）
 CREATE INDEX idx_bookmarks_pinned ON bookmarks(user_id, is_pinned, created_at DESC);
 CREATE INDEX idx_bookmarks_click_count ON bookmarks(user_id, click_count DESC);
 CREATE INDEX idx_bookmarks_last_clicked ON bookmarks(user_id, last_clicked_at DESC);
@@ -115,6 +130,7 @@ CREATE TABLE IF NOT EXISTS user_preferences (
   view_mode TEXT NOT NULL DEFAULT 'list',
   density TEXT NOT NULL DEFAULT 'normal',
   tag_layout TEXT NOT NULL DEFAULT 'grid',
+  sort_by TEXT NOT NULL DEFAULT 'popular',
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );

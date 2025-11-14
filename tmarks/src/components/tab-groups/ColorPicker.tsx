@@ -37,7 +37,8 @@ export function ColorPicker({ currentColor, onColorChange, onClose }: ColorPicke
   return (
     <div
       ref={pickerRef}
-      className="absolute top-full right-0 mt-2 bg-card rounded-lg shadow-lg border border-border p-5 z-50 min-w-[280px]"
+      className="absolute top-full right-0 mt-2 rounded-lg shadow-lg border p-5 z-50 min-w-[280px]"
+      style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}
     >
       <h4 className="text-sm font-medium text-foreground mb-3">选择颜色</h4>
       <div className="grid grid-cols-4 gap-4">

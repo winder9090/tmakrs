@@ -11,7 +11,7 @@ import { ExportSection } from '../../components/import-export/ExportSection'
 import { ImportSection } from '../../components/import-export/ImportSection'
 import { BOOKMARKS_QUERY_KEY } from '../../hooks/useBookmarks'
 import { TAGS_QUERY_KEY } from '../../hooks/useTags'
-import type { ExportFormat, ExportOptions, ImportResult } from '../../../shared/import-export-types'
+import type { ExportFormat, ExportOptions, ImportResult } from '@shared/import-export-types'
 
 export function ImportExportPage() {
   const navigate = useNavigate()

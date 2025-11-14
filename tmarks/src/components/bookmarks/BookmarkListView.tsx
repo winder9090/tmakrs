@@ -7,12 +7,18 @@ interface BookmarkListViewProps {
   bookmarks: Bookmark[]
   onEdit?: (bookmark: Bookmark) => void
   readOnly?: boolean
+  batchMode?: boolean
+  selectedIds?: string[]
+  onToggleSelect?: (id: string) => void
 }
 
 export function BookmarkListView({
   bookmarks,
   onEdit,
   readOnly = false,
+  batchMode = false,
+  selectedIds = [],
+  onToggleSelect,
 }: BookmarkListViewProps) {
   const parentRef = useRef<HTMLDivElement>(null)
 
@@ -59,6 +65,9 @@ export function BookmarkListView({
                   bookmark={bookmark}
                   onEdit={onEdit ? () => onEdit(bookmark) : undefined}
                   readOnly={readOnly}
+                  batchMode={batchMode}
+                  isSelected={selectedIds.includes(bookmark.id)}
+                  onToggleSelect={onToggleSelect}
                 />
               </div>
             )
@@ -73,6 +82,9 @@ export function BookmarkListView({
             bookmark={bookmark}
             onEdit={onEdit ? () => onEdit(bookmark) : undefined}
             readOnly={readOnly}
+            batchMode={batchMode}
+            isSelected={selectedIds.includes(bookmark.id)}
+            onToggleSelect={onToggleSelect}
           />
         ))}
     </div>
@@ -83,12 +95,18 @@ interface BookmarkListItemProps {
   bookmark: Bookmark
   onEdit?: () => void
   readOnly?: boolean
+  batchMode?: boolean
+  isSelected?: boolean
+  onToggleSelect?: (id: string) => void
 }
 
 const BookmarkListItem = memo(function BookmarkListItem({
   bookmark,
   onEdit,
   readOnly = false,
+  batchMode = false,
+  isSelected = false,
+  onToggleSelect,
 }: BookmarkListItemProps) {
   const recordClick = useRecordClick()
 
@@ -102,9 +120,36 @@ const BookmarkListItem = memo(function BookmarkListItem({
   }
 
   return (
-    <div className="card hover:shadow-lg transition-all relative group mb-2 sm:mb-3 touch-manipulation">
+    <div className={`card hover:shadow-lg transition-all relative group mb-2 sm:mb-3 touch-manipulation ${
+      batchMode && isSelected ? 'ring-2 ring-primary' : ''
+    }`}>
+      {/* 批量选择复选框 */}
+      {batchMode && onToggleSelect && (
+        <div className="absolute top-2 left-2 sm:top-3 sm:left-3 z-10">
+          <button
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onToggleSelect(bookmark.id)
+            }}
+            className={`w-6 h-6 rounded flex items-center justify-center transition-all ${
+              isSelected
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-card border-2 border-border hover:border-primary'
+            }`}
+            title={isSelected ? '取消选择' : '选择'}
+          >
+            {isSelected && (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            )}
+          </button>
+        </div>
+      )}
+
       {/* 编辑按钮 */}
-      {!!onEdit && !readOnly && (
+      {!!onEdit && !readOnly && !batchMode && (
         <button
           onClick={(event) => {
             event.preventDefault()

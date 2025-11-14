@@ -5,13 +5,14 @@
 
 import { useState, useCallback } from 'react'
 import { logger } from '@/lib/logger'
+import { useAuthStore } from '@/stores/authStore'
 import type {
   ExportFormat,
   ExportOptions,
   ImportFormat,
   ImportOptions,
   ImportResult
-} from '../../shared/import-export-types'
+} from '@shared/import-export-types'
 
 interface UseImportExportReturn {
   // 导出相关
@@ -54,8 +55,11 @@ export function useImportExport(): UseImportExportReturn {
         include_user: options?.format_options?.include_user_info?.toString() || 'false'
       })
 
-      const response = await fetch(`/api/v1/export?${params}`)
-      
+      const token = useAuthStore.getState().accessToken
+      const response = await fetch(`/api/v1/export?${params}`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      })
+
       if (!response.ok) {
         const error = await response.json()
         throw new Error(error.message || 'Export failed')
@@ -63,7 +67,7 @@ export function useImportExport(): UseImportExportReturn {
 
       // 获取文件名
       const contentDisposition = response.headers.get('Content-Disposition')
-      const filename = contentDisposition?.match(/filename="([^"]+)"/)?.[1] || 
+      const filename = contentDisposition?.match(/filename="([^"]+)"/)?.[1] ||
                      `tmarks-export-${Date.now()}.${format}`
 
       // 下载文件
@@ -81,22 +85,22 @@ export function useImportExport(): UseImportExportReturn {
 
   // 导入数据
   const importData = useCallback(async (
-    format: ImportFormat, 
-    content: string, 
+    format: ImportFormat,
+    content: string,
     options?: ImportOptions
   ): Promise<ImportResult> => {
     setIsImporting(true)
     setImportError(null)
 
     try {
+      const token = useAuthStore.getState().accessToken
       const response = await fetch('/api/v1/import', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          format,
-          content,
-          options
-        })
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ format, content, options })
       })
 
       if (!response.ok) {
@@ -119,9 +123,13 @@ export function useImportExport(): UseImportExportReturn {
   // 获取导出预览
   const getExportPreview = useCallback(async () => {
     try {
+      const token = useAuthStore.getState().accessToken
       const response = await fetch('/api/v1/export', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ format: 'json' })
       })
 
@@ -139,7 +147,10 @@ export function useImportExport(): UseImportExportReturn {
   // 获取导入预览
   const getImportPreview = useCallback(async (format: ImportFormat) => {
     try {
-      const response = await fetch(`/api/v1/import?format=${format}&preview=true`)
+      const token = useAuthStore.getState().accessToken
+      const response = await fetch(`/api/v1/import?format=${format}&preview=true`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      })
 
       if (!response.ok) {
         throw new Error('Failed to get import preview')

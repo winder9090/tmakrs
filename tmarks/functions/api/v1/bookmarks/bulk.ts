@@ -1,6 +1,6 @@
 import type { PagesFunction } from '@cloudflare/workers-types'
 import type { Env, RouteParams } from '../../../lib/types'
-import type { AuthContext } from '../../../middleware/auth'
+import { requireAuth, type AuthContext } from '../../../middleware/auth'
 import { invalidatePublicShareCache } from '../../shared/cache'
 
 // Batch action types
@@ -24,8 +24,10 @@ interface BatchActionResponse {
  * PATCH /api/v1/bookmarks/bulk
  * Batch operations on bookmarks
  */
-export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext> = async (context) => {
-  const userId = context.data.user_id
+export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
+  requireAuth,
+  async (context) => {
+    const userId = context.data.user_id
 
   try {
     const body = (await context.request.json()) as BatchActionRequest
@@ -307,4 +309,5 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext> = asyn
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }
-}
+},
+]

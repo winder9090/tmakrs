@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { X, FolderOpen } from 'lucide-react'
 import type { TabGroup } from '@/lib/types'
+import { Z_INDEX } from '@/lib/constants/z-index'
 
 interface MoveItemDialogProps {
   isOpen: boolean
@@ -36,7 +37,7 @@ export function MoveItemDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-background/80 backdrop-blur-sm">
+    <div className="fixed inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm" style={{ zIndex: Z_INDEX.MOVE_ITEM_DIALOG }}>
       <div className="border border-border rounded-lg shadow-xl w-full max-w-md mx-4" style={{ backgroundColor: 'var(--card)' }}>
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">

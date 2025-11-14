@@ -48,7 +48,8 @@ export function BatchActionBar({
         <div className="flex items-center gap-2">
           <button
             onClick={onBatchPin}
-            className="flex items-center gap-2 px-3 py-1.5 bg-card border border-border rounded hover:bg-muted transition-colors text-sm"
+            className="flex items-center gap-2 px-3 py-1.5 border rounded hover:bg-muted transition-colors text-sm"
+            style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}
             disabled={selectedCount === 0}
           >
             <Pin className="w-4 h-4" />
@@ -56,7 +57,8 @@ export function BatchActionBar({
           </button>
           <button
             onClick={onBatchTodo}
-            className="flex items-center gap-2 px-3 py-1.5 bg-card border border-border rounded hover:bg-muted transition-colors text-sm"
+            className="flex items-center gap-2 px-3 py-1.5 border rounded hover:bg-muted transition-colors text-sm"
+            style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}
             disabled={selectedCount === 0}
           >
             <CheckSquare className="w-4 h-4" />
@@ -64,7 +66,8 @@ export function BatchActionBar({
           </button>
           <button
             onClick={onBatchExport}
-            className="flex items-center gap-2 px-3 py-1.5 bg-card border border-border rounded hover:bg-muted transition-colors text-sm"
+            className="flex items-center gap-2 px-3 py-1.5 border rounded hover:bg-muted transition-colors text-sm"
+            style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}
             disabled={selectedCount === 0}
           >
             <Download className="w-4 h-4" />

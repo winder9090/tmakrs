@@ -48,7 +48,8 @@ export function TagsInput({ tags, onTagsChange, onClose }: TagsInputProps) {
   return (
     <div
       ref={inputRef}
-      className="absolute top-full right-0 mt-2 bg-card rounded-lg shadow-xl border border-border p-4 z-50 w-80"
+      className="absolute top-full right-0 mt-2 rounded-lg shadow-xl border p-4 z-50 w-80"
+      style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}
     >
       <div className="mb-3">
         <div className="flex gap-2">
@@ -58,7 +59,8 @@ export function TagsInput({ tags, onTagsChange, onClose }: TagsInputProps) {
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="输入标签名称..."
-            className="flex-1 px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-card text-foreground"
+            className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
+            style={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}
             autoFocus
           />
           <button
@@ -90,7 +92,7 @@ export function TagsInput({ tags, onTagsChange, onClose }: TagsInputProps) {
         </div>
       )}
 
-      <div className="flex justify-end gap-2 pt-3 border-t border-border">
+      <div className="flex justify-end gap-2 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
         <button
           onClick={onClose}
           className="px-4 py-2 text-foreground hover:bg-muted rounded-lg"
