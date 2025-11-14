@@ -4,7 +4,8 @@
  */
 
 import { useState, useRef } from 'react'
-import { Upload, FileText, Code, CheckCircle, Loader2, FileCode } from 'lucide-react'
+import { Upload, FileText, Code, CheckCircle, Loader2, FileCode, ArrowRight } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { DragDropUpload } from '../common/DragDropUpload'
 import { ProgressIndicator } from '../common/ProgressIndicator'
 import { ErrorDisplay } from '../common/ErrorDisplay'
@@ -26,6 +27,7 @@ interface ImportProgress {
 }
 
 export function ImportSection({ onImport }: ImportSectionProps) {
+  const navigate = useNavigate()
   const [selectedFormat, setSelectedFormat] = useState<ImportFormat>('html')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isImporting, setIsImporting] = useState(false)
@@ -485,24 +487,45 @@ export function ImportSection({ onImport }: ImportSectionProps) {
               />
             </div>
           )}
+
+          {/* 导入成功后的操作按钮 */}
+          {importResult.success > 0 && (
+            <div className="mt-6 flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => navigate('/bookmarks')}
+                className="flex-1 flex items-center justify-center space-x-2 px-4 py-3 sm:py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 touch-manipulation"
+              >
+                <span>查看导入的书签</span>
+                <ArrowRight className="h-4 w-4" />
+              </button>
+              <button
+                onClick={handleReset}
+                className="flex-1 px-4 py-3 sm:py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 touch-manipulation"
+              >
+                继续导入
+              </button>
+            </div>
+          )}
         </div>
       )}
 
       {/* 操作按钮 */}
-      <div className="flex space-x-3">
-        <button
-          onClick={handleImport}
-          disabled={!selectedFile || !validationResult?.valid || isImporting || isValidating}
-          className="w-full flex items-center justify-center space-x-2 px-4 py-3 sm:py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
-        >
-          {isImporting ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Upload className="h-4 w-4" />
-          )}
-          <span>{isImporting ? '导入中...' : '开始导入'}</span>
-        </button>
-      </div>
+      {!importResult && (
+        <div className="flex space-x-3">
+          <button
+            onClick={handleImport}
+            disabled={!selectedFile || !validationResult?.valid || isImporting || isValidating}
+            className="w-full flex items-center justify-center space-x-2 px-4 py-3 sm:py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
+          >
+            {isImporting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4" />
+            )}
+            <span>{isImporting ? '导入中...' : '开始导入'}</span>
+          </button>
+        </div>
+      )}
     </div>
   )
 }

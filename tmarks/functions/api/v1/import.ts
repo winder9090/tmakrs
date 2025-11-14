@@ -344,13 +344,15 @@ async function createBookmark(
       // 恢复已删除的书签
       await db.prepare(
         `UPDATE bookmarks
-         SET title = ?, description = ?,
+         SET title = ?, description = ?, cover_image = ?,
+             is_archived = 0,
              deleted_at = NULL, updated_at = ?
          WHERE id = ?`
       )
         .bind(
           bookmark.title,
           bookmark.description || null,
+          bookmark.cover_image || null,
           now,
           existing.id
         )
@@ -363,16 +365,18 @@ async function createBookmark(
 
       await db.prepare(`
         INSERT INTO bookmarks (
-          id, user_id, title, url, description,
-          is_pinned, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          id, user_id, title, url, description, cover_image,
+          is_pinned, is_archived, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(
         bookmarkId,
         userId,
         bookmark.title,
         bookmark.url,
         bookmark.description || null,
+        bookmark.cover_image || null,
         false, // 导入的书签默认不置顶
+        false, // 导入的书签默认不归档
         createdAt,
         now
       ).run()

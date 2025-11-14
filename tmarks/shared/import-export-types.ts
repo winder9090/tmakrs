@@ -10,6 +10,7 @@ export interface ExportBookmark {
   title: string
   url: string
   description?: string
+  cover_image?: string
   tags: string[]
   is_pinned: boolean
   created_at: string
@@ -59,6 +60,7 @@ export interface ParsedBookmark {
   title: string
   url: string
   description?: string
+  cover_image?: string
   tags: string[]
   created_at?: string
   folder?: string

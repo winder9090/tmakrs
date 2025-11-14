@@ -151,6 +151,7 @@ export class JsonParser implements ImportParser {
       title: bookmark.title,
       url: bookmark.url,
       description: bookmark.description,
+      cover_image: bookmark.cover_image,
       tags: bookmark.tags || [],
       created_at: bookmark.created_at,
       folder: undefined

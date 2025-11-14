@@ -153,10 +153,10 @@ async function collectUserData(db: D1Database, userId: string): Promise<TMarksEx
 
     // 获取所有书签
     const { results: bookmarks } = await db.prepare(`
-      SELECT 
-        id, title, url, description, is_pinned, 
+      SELECT
+        id, title, url, description, cover_image, is_pinned,
         created_at, updated_at, click_count, last_clicked_at
-      FROM bookmarks 
+      FROM bookmarks
       WHERE user_id = ? AND deleted_at IS NULL
       ORDER BY created_at DESC
     `).bind(userId).all()
@@ -192,6 +192,7 @@ async function collectUserData(db: D1Database, userId: string): Promise<TMarksEx
       title: bookmark.title,
       url: bookmark.url,
       description: bookmark.description,
+      cover_image: bookmark.cover_image,
       tags: bookmarkTagMap.get(bookmark.id) || [],
       is_pinned: Boolean(bookmark.is_pinned),
       created_at: bookmark.created_at,
