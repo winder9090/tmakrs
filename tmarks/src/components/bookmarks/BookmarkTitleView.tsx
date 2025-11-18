@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useState, useEffect } from 'react'
 import type { Bookmark } from '@/lib/types'
 import { useRecordClick } from '@/hooks/useBookmarks'
 
@@ -19,20 +19,137 @@ export function BookmarkTitleView({
   selectedIds = [],
   onToggleSelect,
 }: BookmarkTitleViewProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [columns, setColumns] = useState(1)
+  const [showEditHint, setShowEditHint] = useState(true)
+
+  // 移动端10秒后隐藏编辑按钮提示
+  useEffect(() => {
+    // 检测是否为移动端（宽度小于640px）
+    const isMobile = window.innerWidth < 640
+    
+    if (isMobile) {
+      const timer = setTimeout(() => {
+        setShowEditHint(false)
+      }, 10000)
+
+      return () => clearTimeout(timer)
+    } else {
+      // PC端立即隐藏
+      setShowEditHint(false)
+    }
+  }, [])
+
+  // 动态计算列数
+  useEffect(() => {
+    const updateColumns = () => {
+      if (!containerRef.current) return
+
+      const containerWidth = containerRef.current.offsetWidth
+      
+      // 移动端（< 640px）固定2列
+      if (containerWidth < 640) {
+        setColumns(2)
+        return
+      }
+      
+      // 桌面端动态计算列数
+      // 每列最小宽度240px，间距10px
+      const minColumnWidth = 240
+      const gap = 10
+
+      // 计算可以容纳的列数（最多4列）
+      let cols = 2 // 至少2列
+      for (let i = 2; i <= 4; i++) {
+        const totalWidth = i * minColumnWidth + (i - 1) * gap
+        if (containerWidth >= totalWidth) {
+          cols = i
+        } else {
+          break
+        }
+      }
+
+      setColumns(cols)
+    }
+
+    // 初始计算
+    updateColumns()
+
+    // 监听窗口大小变化
+    const resizeObserver = new ResizeObserver(updateColumns)
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current)
+    }
+
+    return () => {
+      resizeObserver.disconnect()
+    }
+  }, [])
+
+  // 按置顶状态分组书签
+  const pinnedBookmarks = bookmarks.filter(b => b.is_pinned)
+  const unpinnedBookmarks = bookmarks.filter(b => !b.is_pinned)
+
+  // 动态分列：将书签分配到各列
+  const columnedBookmarks = (() => {
+    // 创建 N 个空列数组
+    const cols: Bookmark[][] = Array.from({ length: columns }, () => [])
+    
+    // 1. 先将置顶书签按行分散到各列顶部
+    for (let i = 0; i < pinnedBookmarks.length; i++) {
+      const colIndex = i % columns
+      const col = cols[colIndex]
+      const bookmark = pinnedBookmarks[i]
+      if (col && bookmark) {
+        col.push(bookmark)
+      }
+    }
+    
+    // 2. 再将未置顶书签按列顺序分配
+    for (let i = 0; i < unpinnedBookmarks.length; i++) {
+      const colIndex = i % columns
+      const col = cols[colIndex]
+      const bookmark = unpinnedBookmarks[i]
+      if (col && bookmark) {
+        col.push(bookmark)
+      }
+    }
+    
+    return cols
+  })()
+
   return (
-    <div className="columns-1 sm:columns-2 xl:columns-4 gap-2.5 sm:gap-3">
-      {bookmarks.map((bookmark) => (
-        <div key={bookmark.id} className="break-inside-avoid mb-2.5 sm:mb-3">
-          <TitleOnlyCard
-            bookmark={bookmark}
-            onEdit={onEdit ? () => onEdit(bookmark) : undefined}
-            readOnly={readOnly}
-            batchMode={batchMode}
-            isSelected={selectedIds.includes(bookmark.id)}
-            onToggleSelect={onToggleSelect}
-          />
+    <div ref={containerRef} className="w-full">
+      {/* CSS Grid 布局 - 并排显示各列 */}
+      {columnedBookmarks.length > 0 && (
+        <div
+          className="w-full"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: `repeat(${columns}, 1fr)`,
+            gap: '0.625rem',
+            outline: 'none'
+          } as React.CSSProperties}
+        >
+          {columnedBookmarks.map((col, colIndex) => (
+            <div key={`col-${colIndex}`} style={{ outline: 'none' }}>
+              {col.map((bookmark) => (
+                <div key={bookmark.id} className="mb-2.5 sm:mb-3" style={{ outline: 'none' }}>
+                  <TitleOnlyCard
+                    bookmark={bookmark}
+                    onEdit={onEdit ? () => onEdit(bookmark) : undefined}
+                    readOnly={readOnly}
+                    batchMode={batchMode}
+                    isSelected={selectedIds.includes(bookmark.id)}
+                    onToggleSelect={onToggleSelect}
+                    showEditHint={showEditHint}
+                  />
+                </div>
+              ))}
+            </div>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   )
 }
@@ -44,6 +161,7 @@ interface TitleOnlyCardProps {
   batchMode?: boolean
   isSelected?: boolean
   onToggleSelect?: (id: string) => void
+  showEditHint?: boolean
 }
 
 function TitleOnlyCard({
@@ -53,6 +171,7 @@ function TitleOnlyCard({
   batchMode = false,
   isSelected = false,
   onToggleSelect,
+  showEditHint = false,
 }: TitleOnlyCardProps) {
   const recordClick = useRecordClick()
   const hasEditClickRef = useRef(false)
@@ -81,14 +200,14 @@ function TitleOnlyCard({
 
   return (
     <div className="relative group">
-      <div className={`rounded-xl border border-border/70 bg-card/95 backdrop-blur-sm shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/10 ${
+      <div className={`rounded-lg sm:rounded-xl border border-border/70 bg-card/95 backdrop-blur-sm shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/10 ${
         batchMode && isSelected ? 'ring-2 ring-primary' : ''
       }`}>
-        <div className="pointer-events-none absolute inset-0 rounded-xl bg-gradient-to-br from-primary/4 via-transparent to-secondary/8 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+        <div className="pointer-events-none absolute inset-0 rounded-lg sm:rounded-xl bg-gradient-to-br from-primary/4 via-transparent to-secondary/8 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
 
         {/* 批量选择复选框 */}
         {batchMode && onToggleSelect && (
-          <div className="absolute top-3 left-3 z-10">
+          <div className="absolute top-2 left-2 sm:top-3 sm:left-3 z-10">
             <button
               onClick={(e) => {
                 e.preventDefault()
@@ -111,6 +230,7 @@ function TitleOnlyCard({
           </div>
         )}
 
+        {/* 编辑按钮 - 初始显示10秒后隐藏 */}
         {!!onEdit && !readOnly && !batchMode && (
           <button
             type="button"
@@ -129,16 +249,29 @@ function TitleOnlyCard({
               }, 0)
               onEdit()
             }}
-            className="absolute top-3 right-3 w-8 h-8 rounded-xl border border-white/20 bg-card/80 hover:bg-muted/90 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-lg"
+            className={`absolute top-2 right-2 sm:top-3 sm:right-3 w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl flex items-center justify-center transition-all touch-manipulation ${
+              showEditHint ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 active:opacity-100'
+            }`}
             title="编辑"
           >
-            <svg className="w-4 h-4 text-base-content" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-base-content drop-shadow-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
           </button>
         )}
 
-        <div className="relative z-10 px-5 py-4 space-y-2 pointer-events-none">
+        {/* 内容区 - 移动端更紧凑 */}
+        <div className="relative z-10 px-3 py-3 sm:px-5 sm:py-4 space-y-1.5 sm:space-y-2 pointer-events-none">
+          {/* 置顶标识 - 移动端也显示 */}
+          {bookmark.is_pinned && (
+            <div className="flex items-center gap-1 mb-1">
+              <span className="bg-warning text-warning-content text-[10px] sm:text-xs px-1.5 py-0.5 rounded-full font-medium">
+                置顶
+              </span>
+            </div>
+          )}
+          
+          {/* 标题 */}
           <button
             type="button"
             onClick={(event) => {
@@ -155,15 +288,17 @@ function TitleOnlyCard({
                 handleCardClick()
               }
             }}
-            className="pointer-events-auto inline-flex max-w-full text-left text-sm font-semibold leading-snug text-foreground line-clamp-2 hover:text-primary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 rounded-md pr-12"
+            className="pointer-events-auto inline-flex max-w-full text-left text-xs sm:text-sm font-semibold leading-snug text-foreground line-clamp-3 sm:line-clamp-2 hover:text-primary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 rounded-md pr-9 sm:pr-12"
           >
             {bookmark.title?.trim() || bookmark.url}
           </button>
+          
+          {/* 域名 */}
           <a
             href={bookmark.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="pointer-events-auto block text-xs text-muted-foreground/70 truncate hover:text-primary"
+            className="pointer-events-auto block text-[10px] sm:text-xs text-muted-foreground/70 truncate hover:text-primary"
             onClick={(e) => {
               if (batchMode) {
                 e.preventDefault()

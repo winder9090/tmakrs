@@ -196,6 +196,7 @@ export function BookmarksPage() {
       const storedUpdatedAt = getStoredViewModeUpdatedAt()
       const serverUpdatedAt = preferences.updated_at ? new Date(preferences.updated_at).getTime() : 0
 
+      // 优先使用时间戳更新的数据源
       if (!storedMode || serverUpdatedAt > storedUpdatedAt) {
         setViewMode(preferences.view_mode)
         setStoredViewMode(preferences.view_mode, serverUpdatedAt)
@@ -258,37 +259,30 @@ export function BookmarksPage() {
   const bookmarksQuery = useInfiniteBookmarks(queryParams)
   const { refetch: refetchTags } = useTags()
 
-  // 使用 useMemo 缓存书签列表
+  // 使用 useMemo 缓存书签列表，并进行去重处理
   const bookmarks = useMemo(() => {
     if (!bookmarksQuery.data?.pages?.length) {
       return [] as Bookmark[]
     }
-    return bookmarksQuery.data.pages.flatMap(page => page.bookmarks)
+    const allBookmarks = bookmarksQuery.data.pages.flatMap(page => page.bookmarks)
+    // 使用 Map 去重，保留第一次出现的书签
+    const uniqueBookmarksMap = new Map<string, Bookmark>()
+    allBookmarks.forEach(bookmark => {
+      if (!uniqueBookmarksMap.has(bookmark.id)) {
+        uniqueBookmarksMap.set(bookmark.id, bookmark)
+      }
+    })
+    return Array.from(uniqueBookmarksMap.values())
   }, [bookmarksQuery.data])
 
   // 使用 useMemo 缓存可见性筛选结果
   const filteredBookmarks = useMemo(() => {
     if (visibilityFilter === 'all') return bookmarks
-    
-    return bookmarks.filter((bookmark) => 
+
+    return bookmarks.filter((bookmark) =>
       visibilityFilter === 'public' ? bookmark.is_public : !bookmark.is_public
     )
   }, [bookmarks, visibilityFilter])
-
-  const lastPageCount = useMemo(() => {
-    const pages = bookmarksQuery.data?.pages
-    if (!pages || pages.length === 0) {
-      return 0
-    }
-    const lastPageBookmarks = pages[pages.length - 1]?.bookmarks ?? []
-    if (visibilityFilter === 'public') {
-      return lastPageBookmarks.filter((bookmark) => bookmark.is_public).length
-    }
-    if (visibilityFilter === 'private') {
-      return lastPageBookmarks.filter((bookmark) => !bookmark.is_public).length
-    }
-    return lastPageBookmarks.length
-  }, [bookmarksQuery.data, visibilityFilter])
 
   const isInitialLoading = bookmarksQuery.isLoading && bookmarks.length === 0
   const isFetchingExisting = bookmarksQuery.isFetching && !isInitialLoading
@@ -483,83 +477,81 @@ export function BookmarksPage() {
   const visibilityMenuPortal =
     typeof document !== 'undefined' && isVisibilityMenuOpen && visibilityMenuPosition
       ? createPortal(
-          <div
-            ref={(node) => {
-              visibilityMenuContentRef.current = node
-            }}
-            className="rounded-lg border border-border shadow-lg overflow-hidden"
-            style={{
-              position: 'absolute',
-              top: visibilityMenuPosition.top,
-              left: visibilityMenuPosition.left,
-              width: visibilityMenuPosition.width ?? 180,
-              backgroundColor: 'var(--card)',
-              zIndex: 1000,
-            }}
-          >
-            {VISIBILITY_OPTIONS.map((option) => (
-              <button
-                key={option}
-                type="button"
-                onClick={() => handleVisibilityChange(option)}
-                className={`w-full px-3 py-2 text-sm flex items-center gap-2 transition-colors ${
-                  visibilityFilter === option
-                    ? 'bg-primary/10 text-primary font-medium'
-                    : 'text-muted-foreground hover:bg-muted'
+        <div
+          ref={(node) => {
+            visibilityMenuContentRef.current = node
+          }}
+          className="rounded-lg border border-border shadow-lg overflow-hidden"
+          style={{
+            position: 'absolute',
+            top: visibilityMenuPosition.top,
+            left: visibilityMenuPosition.left,
+            width: visibilityMenuPosition.width ?? 180,
+            backgroundColor: 'var(--card)',
+            zIndex: 1000,
+          }}
+        >
+          {VISIBILITY_OPTIONS.map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => handleVisibilityChange(option)}
+              className={`w-full px-3 py-2 text-sm flex items-center gap-2 transition-colors ${visibilityFilter === option
+                ? 'bg-primary/10 text-primary font-medium'
+                : 'text-muted-foreground hover:bg-muted'
                 }`}
-              >
-                <VisibilityIcon filter={option} />
-                <span>{VISIBILITY_LABELS[option]}</span>
-              </button>
-            ))}
-          </div>,
-          document.body,
-        )
+            >
+              <VisibilityIcon filter={option} />
+              <span>{VISIBILITY_LABELS[option]}</span>
+            </button>
+          ))}
+        </div>,
+        document.body,
+      )
       : null
 
   const viewMenuPortal =
     typeof document !== 'undefined' && isViewMenuOpen && viewMenuPosition
       ? createPortal(
-          <div
-            ref={(node) => {
-              viewMenuContentRef.current = node
-            }}
-            className="rounded-lg border border-border shadow-lg overflow-hidden"
-            style={{
-              position: 'absolute',
-              top: viewMenuPosition.top,
-              left: viewMenuPosition.left,
-              width: viewMenuPosition.width ?? 200,
-              backgroundColor: 'var(--card)',
-              zIndex: 1000,
-            }}
-          >
-            {VIEW_MODES.map((modeOption) => (
-              <button
-                key={modeOption}
-                type="button"
-                onClick={() => handleViewModeChange(modeOption)}
-                className={`w-full px-3 py-2 text-sm flex items-center gap-2 transition-colors ${
-                  viewMode === modeOption
-                    ? 'bg-primary/10 text-primary font-medium'
-                    : 'text-muted-foreground hover:bg-muted'
+        <div
+          ref={(node) => {
+            viewMenuContentRef.current = node
+          }}
+          className="rounded-lg border border-border shadow-lg overflow-hidden"
+          style={{
+            position: 'absolute',
+            top: viewMenuPosition.top,
+            left: viewMenuPosition.left,
+            width: viewMenuPosition.width ?? 200,
+            backgroundColor: 'var(--card)',
+            zIndex: 1000,
+          }}
+        >
+          {VIEW_MODES.map((modeOption) => (
+            <button
+              key={modeOption}
+              type="button"
+              onClick={() => handleViewModeChange(modeOption)}
+              className={`w-full px-3 py-2 text-sm flex items-center gap-2 transition-colors ${viewMode === modeOption
+                ? 'bg-primary/10 text-primary font-medium'
+                : 'text-muted-foreground hover:bg-muted'
                 }`}
-              >
-                <ViewModeIcon mode={modeOption} />
-                <span>
-                  {modeOption === 'list'
-                    ? '列表视图'
-                    : modeOption === 'card'
-                      ? '卡片视图'
-                      : modeOption === 'minimal'
-                        ? '极简列表'
-                        : '标题瀑布'}
-                </span>
-              </button>
-            ))}
-          </div>,
-          document.body,
-        )
+            >
+              <ViewModeIcon mode={modeOption} />
+              <span>
+                {modeOption === 'list'
+                  ? '列表视图'
+                  : modeOption === 'card'
+                    ? '卡片视图'
+                    : modeOption === 'minimal'
+                      ? '极简列表'
+                      : '标题瀑布'}
+              </span>
+            </button>
+          ))}
+        </div>,
+        document.body,
+      )
       : null
 
 
@@ -568,263 +560,261 @@ export function BookmarksPage() {
     <>
       {visibilityMenuPortal}
       {viewMenuPortal}
-      <div className="w-full mx-auto py-3 sm:py-4 md:py-6 px-3 sm:px-4 md:px-6">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 md:gap-6">
-        {/* 左侧：标签侧边栏 - 桌面端显示 */}
-        <aside className="hidden lg:block lg:col-span-3 order-2 lg:order-1 fixed top-[calc(5rem+0.75rem)] sm:top-[calc(5rem+1rem)] md:top-[calc(5rem+1.5rem)] left-3 sm:left-4 md:left-6 bottom-3 w-[calc(25%-1.5rem)] z-40">
-          <TagSidebar
-            selectedTags={selectedTags}
-            onTagsChange={setSelectedTags}
-            tagLayout={tagLayout}
-            onTagLayoutChange={handleTagLayoutChange}
-            bookmarks={filteredBookmarks}
-            isLoadingBookmarks={isInitialLoading || isFetchingExisting}
-          />
-        </aside>
+      <div className="w-full max-w-full mx-auto py-3 sm:py-4 md:py-6 px-3 sm:px-4 md:px-6 overflow-x-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 md:gap-6 max-w-full">
+          {/* 左侧：标签侧边栏 - 桌面端显示 */}
+          <aside className="hidden lg:block lg:col-span-3 order-2 lg:order-1 fixed top-[calc(5rem+0.75rem)] sm:top-[calc(5rem+1rem)] md:top-[calc(5rem+1.5rem)] left-3 sm:left-4 md:left-6 bottom-3 w-[calc(25%-1.5rem)] z-40 flex flex-col overflow-hidden">
+            <TagSidebar
+              selectedTags={selectedTags}
+              onTagsChange={setSelectedTags}
+              tagLayout={tagLayout}
+              onTagLayoutChange={handleTagLayoutChange}
+              bookmarks={filteredBookmarks}
+              isLoadingBookmarks={isInitialLoading || isFetchingExisting}
+            />
+          </aside>
 
-        {/* 右侧：书签列表 */}
-        <main className="lg:col-span-9 lg:col-start-4 order-1 lg:order-2">
-        <div className="space-y-3 sm:space-y-4 md:space-y-5">
-          {/* 顶部操作栏 */}
-          <div className="card shadow-float">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-              {/* 移动端标签抽屉按钮 + 搜索框 */}
-              <div className="flex items-center gap-3 flex-1 w-full sm:min-w-[280px]">
-                {/* 标签抽屉按钮 - 仅移动端显示 */}
+          {/* 右侧：书签列表 */}
+          <main className="lg:col-span-9 lg:col-start-4 order-1 lg:order-2">
+            <div className="space-y-3 sm:space-y-4 md:space-y-5">
+              {/* 顶部操作栏 */}
+              <div className="card shadow-float">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                  {/* 移动端标签抽屉按钮 + 搜索框 */}
+                  <div className="flex items-center gap-3 flex-1 w-full sm:min-w-[280px]">
+                    {/* 标签抽屉按钮 - 仅移动端显示 */}
+                    <button
+                      onClick={() => setIsTagSidebarOpen(true)}
+                      className="lg:hidden w-11 h-11 rounded-xl flex items-center justify-center transition-all shadow-float bg-card border border-border hover:bg-muted hover:border-primary/30 text-foreground"
+                      title="打开标签"
+                      aria-label="打开标签"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                      </svg>
+                    </button>
+
+                    {/* 搜索框 */}
+                    <div className="flex-1">
+                      <div className="relative">
+                        <svg className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <input
+                          type="text"
+                          className="input w-full pl-10 sm:pl-12 h-11 sm:h-auto text-sm sm:text-base"
+                          placeholder="搜索书签标题、描述或URL..."
+                          value={searchKeyword}
+                          onChange={(e) => setSearchKeyword(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 排序选择、视图切换和新增按钮 */}
+                  <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto overflow-x-auto scrollbar-hide pb-1 -mx-1 px-1">
+                    <div className="relative flex-shrink-0">
+                      <SortSelector
+                        value={sortBy}
+                        onChange={handleSortByChange}
+                        className="w-auto"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                      <div className="relative">
+                        <button
+                          ref={visibilityMenuButtonRef}
+                          onClick={toggleVisibilityMenu}
+                          className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center transition-all shadow-float touch-manipulation flex-shrink-0 ${visibilityFilter === 'all'
+                            ? 'bg-muted text-foreground hover:bg-muted/80'
+                            : visibilityFilter === 'public'
+                              ? 'bg-success/10 text-success hover:bg-success/20'
+                              : 'bg-warning/10 text-warning hover:bg-warning/20'
+                            }`}
+                          title={`${VISIBILITY_LABELS[visibilityFilter]}筛选`}
+                          aria-label={`${VISIBILITY_LABELS[visibilityFilter]}筛选`}
+                          type="button"
+                        >
+                          <VisibilityIcon filter={visibilityFilter} />
+                        </button>
+                      </div>
+
+                      {/* 批量操作按钮 */}
+                      <button
+                        onClick={() => {
+                          setBatchMode(!batchMode)
+                          if (batchMode) {
+                            setSelectedIds([])
+                          }
+                        }}
+                        className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center transition-all shadow-float touch-manipulation flex-shrink-0 ${batchMode
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-foreground hover:bg-muted/80'
+                          }`}
+                        title={batchMode ? '退出批量操作' : '批量操作'}
+                        aria-label={batchMode ? '退出批量操作' : '批量操作'}
+                        type="button"
+                      >
+                        <CheckCircle className="w-5 h-5" />
+                      </button>
+
+                      <div className="relative">
+                        <button
+                          ref={viewMenuButtonRef}
+                          onClick={toggleViewMenu}
+                          className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center transition-all shadow-float bg-muted text-foreground hover:bg-muted/80 touch-manipulation flex-shrink-0"
+                          title="切换视图"
+                          aria-label="切换视图"
+                          type="button"
+                        >
+                          <ViewModeIcon mode={viewMode} />
+                        </button>
+                      </div>
+
+                      <button
+                        onClick={() => handleOpenForm()}
+                        className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-primary to-secondary text-primary-content flex items-center justify-center shadow-float hover:shadow-xl transition-all hover:scale-105 active:scale-95 touch-manipulation flex-shrink-0"
+                        title="新增书签"
+                        aria-label="新增书签"
+                        type="button"
+                      >
+                        <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* 批量操作提示栏 */}
+              {batchMode && (
+                <div className="card bg-primary/10 border border-primary/20 mb-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm font-medium text-foreground">
+                        {selectedIds.length > 0
+                          ? `已选择 ${selectedIds.length} 个书签`
+                          : '请选择要操作的书签'}
+                      </span>
+                      {selectedIds.length < filteredBookmarks.length && (
+                        <>
+                          <span className="text-border">|</span>
+                          <button
+                            onClick={handleSelectAll}
+                            className="text-sm text-primary hover:text-primary/80 transition-colors"
+                          >
+                            全选当前页 ({filteredBookmarks.length})
+                          </button>
+                        </>
+                      )}
+                      {selectedIds.length > 0 && (
+                        <>
+                          <span className="text-border">|</span>
+                          <button
+                            onClick={handleClearSelection}
+                            className="text-sm text-primary hover:text-primary/80 transition-colors"
+                          >
+                            取消选择
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 书签列表 */}
+              <BookmarkListContainer
+                bookmarks={filteredBookmarks}
+                isLoading={isInitialLoading || isFetchingExisting}
+                viewMode={viewMode}
+                onEdit={handleOpenForm}
+                previousCount={previousCountRef.current}
+                batchMode={batchMode}
+                selectedIds={selectedIds}
+                onToggleSelect={handleToggleSelect}
+              />
+
+              {/* 分页控制 */}
+              {!isInitialLoading && filteredBookmarks.length > 0 && (
+                <PaginationFooter
+                  hasMore={hasMore}
+                  isLoading={bookmarksQuery.isFetchingNextPage}
+                  onLoadMore={handleLoadMore}
+                  currentCount={filteredBookmarks.length}
+                  totalLoaded={filteredBookmarks.length}
+                />
+              )}
+            </div>
+          </main>
+        </div>
+
+        {/* 移动端标签抽屉 */}
+        {isTagSidebarOpen && (
+          <div className="fixed inset-0 z-50 lg:hidden">
+            {/* 背景遮罩 */}
+            <div
+              className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+              onClick={() => setIsTagSidebarOpen(false)}
+            />
+
+            {/* 抽屉内容 */}
+            <div className="absolute left-0 top-0 bottom-0 w-80 max-w-[85vw] bg-background border-r border-border shadow-xl animate-in slide-in-from-left duration-300 flex flex-col">
+              {/* 抽屉头部 */}
+              <div className="flex items-center justify-between p-4 border-b border-border bg-background flex-shrink-0">
+                <h3 className="text-lg font-semibold text-foreground">标签筛选</h3>
                 <button
-                  onClick={() => setIsTagSidebarOpen(true)}
-                  className="lg:hidden w-11 h-11 rounded-xl flex items-center justify-center transition-all shadow-float bg-card border border-border hover:bg-muted hover:border-primary/30 text-foreground"
-                  title="打开标签"
-                  aria-label="打开标签"
+                  onClick={() => setIsTagSidebarOpen(false)}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-muted transition-colors"
+                  aria-label="关闭标签抽屉"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
-
-                {/* 搜索框 */}
-                <div className="flex-1">
-                  <div className="relative">
-                    <svg className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                    <input
-                      type="text"
-                      className="input w-full pl-10 sm:pl-12 h-11 sm:h-auto text-sm sm:text-base"
-                      placeholder="搜索书签标题、描述或URL..."
-                      value={searchKeyword}
-                      onChange={(e) => setSearchKeyword(e.target.value)}
-                    />
-                  </div>
-                </div>
               </div>
 
-              {/* 排序选择、视图切换和新增按钮 */}
-              <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto overflow-x-auto scrollbar-hide">
-                <div className="relative flex-shrink-0">
-                  <SortSelector
-                    value={sortBy}
-                    onChange={handleSortByChange}
-                    className="w-auto"
-                  />
-                </div>
-
-                <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-                  <div className="relative">
-                    <button
-                      ref={visibilityMenuButtonRef}
-                      onClick={toggleVisibilityMenu}
-                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center transition-all shadow-float touch-manipulation flex-shrink-0 ${
-                        visibilityFilter === 'all'
-                          ? 'bg-muted text-foreground hover:bg-muted/80'
-                          : visibilityFilter === 'public'
-                            ? 'bg-success/10 text-success hover:bg-success/20'
-                            : 'bg-warning/10 text-warning hover:bg-warning/20'
-                      }`}
-                      title={`${VISIBILITY_LABELS[visibilityFilter]}筛选`}
-                      aria-label={`${VISIBILITY_LABELS[visibilityFilter]}筛选`}
-                      type="button"
-                    >
-                      <VisibilityIcon filter={visibilityFilter} />
-                    </button>
-                  </div>
-
-                  {/* 批量操作按钮 */}
-                  <button
-                    onClick={() => {
-                      setBatchMode(!batchMode)
-                      if (batchMode) {
-                        setSelectedIds([])
-                      }
-                    }}
-                    className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center transition-all shadow-float touch-manipulation flex-shrink-0 ${
-                      batchMode
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-foreground hover:bg-muted/80'
-                    }`}
-                    title={batchMode ? '退出批量操作' : '批量操作'}
-                    aria-label={batchMode ? '退出批量操作' : '批量操作'}
-                    type="button"
-                  >
-                    <CheckCircle className="w-5 h-5" />
-                  </button>
-
-                  <div className="relative">
-                    <button
-                      ref={viewMenuButtonRef}
-                      onClick={toggleViewMenu}
-                      className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center transition-all shadow-float bg-muted text-foreground hover:bg-muted/80 touch-manipulation flex-shrink-0"
-                      title="切换视图"
-                      aria-label="切换视图"
-                      type="button"
-                    >
-                      <ViewModeIcon mode={viewMode} />
-                    </button>
-                  </div>
-
-                  <button
-                    onClick={() => handleOpenForm()}
-                    className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-primary to-secondary text-primary-content flex items-center justify-center shadow-float hover:shadow-xl transition-all hover:scale-105 active:scale-95 touch-manipulation flex-shrink-0"
-                    title="新增书签"
-                    aria-label="新增书签"
-                    type="button"
-                  >
-                    <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                    </svg>
-                  </button>
-                </div>
+              {/* 抽屉内容区域 */}
+              <div className="flex-1 overflow-y-auto p-4 bg-background min-h-0">
+                <TagSidebar
+                  selectedTags={selectedTags}
+                  onTagsChange={(tags) => {
+                    setSelectedTags(tags)
+                    // 选择2个或更多标签后自动关闭抽屉
+                    if (tags.length >= 2 && tags.length > selectedTags.length) {
+                      setTimeout(() => setIsTagSidebarOpen(false), 500)
+                    }
+                  }}
+                  tagLayout={tagLayout}
+                  onTagLayoutChange={handleTagLayoutChange}
+                  bookmarks={filteredBookmarks}
+                  isLoadingBookmarks={isInitialLoading || isFetchingExisting}
+                />
               </div>
             </div>
-
           </div>
+        )}
 
-          {/* 批量操作提示栏 */}
-          {batchMode && (
-            <div className="card bg-primary/10 border border-primary/20 mb-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <span className="text-sm font-medium text-foreground">
-                    {selectedIds.length > 0
-                      ? `已选择 ${selectedIds.length} 个书签`
-                      : '请选择要操作的书签'}
-                  </span>
-                  {selectedIds.length < filteredBookmarks.length && (
-                    <>
-                      <span className="text-border">|</span>
-                      <button
-                        onClick={handleSelectAll}
-                        className="text-sm text-primary hover:text-primary/80 transition-colors"
-                      >
-                        全选当前页 ({filteredBookmarks.length})
-                      </button>
-                    </>
-                  )}
-                  {selectedIds.length > 0 && (
-                    <>
-                      <span className="text-border">|</span>
-                      <button
-                        onClick={handleClearSelection}
-                        className="text-sm text-primary hover:text-primary/80 transition-colors"
-                      >
-                        取消选择
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
+        {/* 书签表单模态框 */}
+        {showForm && (
+          <BookmarkForm
+            bookmark={editingBookmark}
+            onClose={handleCloseForm}
+            onSuccess={handleFormSuccess}
+          />
+        )}
 
-          {/* 书签列表 */}
-          <BookmarkListContainer
-            bookmarks={filteredBookmarks}
-            isLoading={isInitialLoading || isFetchingExisting}
-            viewMode={viewMode}
-            onEdit={handleOpenForm}
-            previousCount={previousCountRef.current}
-            batchMode={batchMode}
+        {/* 批量操作栏 */}
+        {batchMode && selectedIds.length > 0 && (
+          <BatchActionBar
             selectedIds={selectedIds}
-            onToggleSelect={handleToggleSelect}
+            onClearSelection={handleClearSelection}
+            onSuccess={handleBatchSuccess}
           />
-
-          {/* 分页控制 */}
-          {!isInitialLoading && filteredBookmarks.length > 0 && (
-            <PaginationFooter
-              hasMore={hasMore}
-              isLoading={bookmarksQuery.isFetchingNextPage}
-              onLoadMore={handleLoadMore}
-              currentCount={lastPageCount}
-              totalLoaded={filteredBookmarks.length}
-            />
-          )}
-        </div>
-      </main>
-      </div>
-
-      {/* 移动端标签抽屉 */}
-      {isTagSidebarOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          {/* 背景遮罩 */}
-          <div
-            className="absolute inset-0 bg-background/80 backdrop-blur-sm"
-            onClick={() => setIsTagSidebarOpen(false)}
-          />
-
-          {/* 抽屉内容 */}
-          <div className="absolute left-0 top-0 bottom-0 w-80 max-w-[85vw] bg-background border-r border-border shadow-xl animate-in slide-in-from-left duration-300 flex flex-col">
-            {/* 抽屉头部 */}
-            <div className="flex items-center justify-between p-4 border-b border-border bg-background flex-shrink-0">
-              <h3 className="text-lg font-semibold text-foreground">标签筛选</h3>
-              <button
-                onClick={() => setIsTagSidebarOpen(false)}
-                className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-muted transition-colors"
-                aria-label="关闭标签抽屉"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* 抽屉内容区域 */}
-            <div className="flex-1 overflow-y-auto p-4 bg-background min-h-0">
-              <TagSidebar
-                selectedTags={selectedTags}
-                onTagsChange={(tags) => {
-                  setSelectedTags(tags)
-                  // 选择2个或更多标签后自动关闭抽屉
-                  if (tags.length >= 2 && tags.length > selectedTags.length) {
-                    setTimeout(() => setIsTagSidebarOpen(false), 500)
-                  }
-                }}
-                tagLayout={tagLayout}
-                onTagLayoutChange={handleTagLayoutChange}
-                bookmarks={filteredBookmarks}
-                isLoadingBookmarks={isInitialLoading || isFetchingExisting}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 书签表单模态框 */}
-      {showForm && (
-        <BookmarkForm
-          bookmark={editingBookmark}
-          onClose={handleCloseForm}
-          onSuccess={handleFormSuccess}
-        />
-      )}
-
-      {/* 批量操作栏 */}
-      {batchMode && selectedIds.length > 0 && (
-        <BatchActionBar
-          selectedIds={selectedIds}
-          onClearSelection={handleClearSelection}
-          onSuccess={handleBatchSuccess}
-        />
-      )}
+        )}
       </div>
     </>
   )

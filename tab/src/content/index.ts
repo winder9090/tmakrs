@@ -76,59 +76,141 @@ class PageContentExtractor {
    * Get page thumbnail/cover image
    */
   private getThumbnail(): string {
-    // Try to find Open Graph image
-    const ogImage = document.querySelector('meta[property="og:image"]');
-    if (ogImage instanceof HTMLMetaElement && ogImage.content) {
+    // 辅助函数：安全地解析URL
+    const safeParseUrl = (urlString: string, baseUrl?: string): string => {
+      if (!urlString || typeof urlString !== 'string') return '';
+      
       try {
-        return new URL(ogImage.content, window.location.href).href;
+        // 移除可能的空白字符
+        urlString = urlString.trim();
+        if (!urlString) return '';
+        
+        // 如果是相对URL，使用baseUrl或当前页面URL
+        const absoluteUrl = new URL(urlString, baseUrl || window.location.href);
+        
+        // 验证协议（只接受http/https）
+        if (absoluteUrl.protocol !== 'http:' && absoluteUrl.protocol !== 'https:') {
+          console.warn('[ContentScript] Invalid image protocol:', absoluteUrl.protocol);
+          return '';
+        }
+        
+        return absoluteUrl.href;
       } catch (e) {
-        console.error('Failed to parse og:image URL:', e);
+        console.warn('[ContentScript] Failed to parse URL:', urlString, e);
+        return '';
       }
+    };
+
+    // 1. 尝试获取 Open Graph image
+    try {
+      const ogImage = document.querySelector('meta[property="og:image"]');
+      if (ogImage instanceof HTMLMetaElement && ogImage.content) {
+        const url = safeParseUrl(ogImage.content);
+        if (url) {
+          console.log('[ContentScript] Found og:image:', url);
+          return url;
+        }
+      }
+    } catch (e) {
+      console.error('[ContentScript] Error reading og:image:', e);
     }
 
-    // Try Twitter image
-    const twitterImage = document.querySelector('meta[name="twitter:image"]');
-    if (twitterImage instanceof HTMLMetaElement && twitterImage.content) {
-      try {
-        return new URL(twitterImage.content, window.location.href).href;
-      } catch (e) {
-        console.error('Failed to parse twitter:image URL:', e);
+    // 2. 尝试获取 Twitter image
+    try {
+      const twitterImage = document.querySelector('meta[name="twitter:image"]');
+      if (twitterImage instanceof HTMLMetaElement && twitterImage.content) {
+        const url = safeParseUrl(twitterImage.content);
+        if (url) {
+          console.log('[ContentScript] Found twitter:image:', url);
+          return url;
+        }
       }
+    } catch (e) {
+      console.error('[ContentScript] Error reading twitter:image:', e);
     }
 
-    // Try to find the largest image in main content
-    const mainContent =
-      document.querySelector('main') ||
-      document.querySelector('[role="main"]') ||
-      document.querySelector('article') ||
-      document.body;
+    // 3. 尝试在页面中查找最大的图片
+    try {
+      // 优先搜索主内容区，如果找不到再搜索整个页面
+      const searchAreas = [
+        document.querySelector('main'),
+        document.querySelector('[role="main"]'),
+        document.querySelector('article'),
+        document.body
+      ].filter(Boolean) as HTMLElement[];
 
-    if (mainContent) {
-      const images = mainContent.querySelectorAll('img');
-      let largestImage: HTMLImageElement | null = null;
-      let maxArea = 0;
+      for (const area of searchAreas) {
+        if (!area) continue;
 
-      for (const img of images) {
-        if (img.src && img.naturalWidth > 200 && img.naturalHeight > 200) {
-          const area = img.naturalWidth * img.naturalHeight;
-          if (area > maxArea) {
-            maxArea = area;
-            largestImage = img;
+        const images = area.querySelectorAll('img');
+        let largestImage: HTMLImageElement | null = null;
+        let maxArea = 0;
+
+        for (const img of images) {
+          try {
+            // 跳过没有src的图片
+            if (!img.src) continue;
+
+            // 跳过data URL和blob URL（通常是临时图片）
+            if (img.src.startsWith('data:') || img.src.startsWith('blob:')) continue;
+
+            // 获取图片尺寸
+            let width = img.naturalWidth;
+            let height = img.naturalHeight;
+
+            // 如果图片还没加载完成，尝试使用其他方式获取尺寸
+            if (width === 0 || height === 0) {
+              // 方法1: 检查HTML属性
+              const attrWidth = img.getAttribute('width');
+              const attrHeight = img.getAttribute('height');
+              
+              if (attrWidth && attrHeight) {
+                const parsedWidth = parseInt(attrWidth);
+                const parsedHeight = parseInt(attrHeight);
+                if (!isNaN(parsedWidth) && !isNaN(parsedHeight)) {
+                  width = parsedWidth;
+                  height = parsedHeight;
+                }
+              }
+              
+              // 方法2: 使用CSS计算尺寸
+              if (width === 0 || height === 0) {
+                width = img.width || img.offsetWidth || img.clientWidth;
+                height = img.height || img.offsetHeight || img.clientHeight;
+              }
+            }
+
+            // 过滤掉太小的图片（可能是图标、按钮、广告等）
+            // 同时过滤掉异常大的图片（可能是背景图）
+            if (width > 200 && height > 200 && width < 5000 && height < 5000) {
+              const area = width * height;
+              if (area > maxArea) {
+                maxArea = area;
+                largestImage = img;
+              }
+            }
+          } catch (imgError) {
+            // 单个图片处理失败不影响其他图片
+            console.warn('[ContentScript] Error processing image:', imgError);
+            continue;
+          }
+        }
+
+        // 如果在当前区域找到了合适的图片，验证并返回
+        if (largestImage && largestImage.src) {
+          const url = safeParseUrl(largestImage.src);
+          if (url) {
+            console.log('[ContentScript] Found largest image:', url, `(${Math.round(Math.sqrt(maxArea))}px)`);
+            return url;
           }
         }
       }
-
-      if (largestImage && largestImage.src) {
-        try {
-          return new URL(largestImage.src, window.location.href).href;
-        } catch (e) {
-          console.error('Failed to parse largest image URL:', e);
-        }
-      }
+    } catch (e) {
+      console.error('[ContentScript] Error finding largest image:', e);
     }
 
-    // Fallback: try to capture page screenshot (not possible in content script)
-    // Return empty string if no suitable image found
+    // 4. 如果都没找到，返回空字符串
+    console.log('[ContentScript] No suitable thumbnail found');
     return '';
   }
 
@@ -147,33 +229,99 @@ class PageContentExtractor {
 // Create extractor instance
 const extractor = new PageContentExtractor();
 
-// Listen for messages from popup/background
-chrome.runtime.onMessage.addListener(
-  (
-    message: Message,
-    _sender: chrome.runtime.MessageSender,
-    sendResponse: (response: MessageResponse) => void
-  ) => {
-    console.log('[ContentScript] Received message:', message.type);
+// 防止重复注入
+if ((window as any).__AITMARKS_CONTENT_SCRIPT_LOADED__) {
+  console.log('[ContentScript] Already loaded, skipping initialization');
+} else {
+  (window as any).__AITMARKS_CONTENT_SCRIPT_LOADED__ = true;
 
-    if (message.type === 'EXTRACT_PAGE_INFO') {
-      try {
-        const pageInfo = extractor.extract();
-        console.log('[ContentScript] Successfully extracted page info:', pageInfo);
-        sendResponse({
-          success: true,
-          data: pageInfo
-        });
-      } catch (error) {
-        console.error('[ContentScript] Failed to extract page info:', error);
-        sendResponse({
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
+  // Listen for messages from popup/background
+  chrome.runtime.onMessage.addListener(
+    (
+      message: Message,
+      _sender: chrome.runtime.MessageSender,
+      sendResponse: (response: MessageResponse) => void
+    ) => {
+      console.log('[ContentScript] Received message:', message.type);
+
+      // 心跳响应 - 用于检测 content script 是否存活（优先处理，最快响应）
+      if (message.type === 'PING') {
+        try {
+          sendResponse({ success: true, data: 'pong' });
+        } catch (error) {
+          console.error('[ContentScript] Failed to send PING response:', error);
+        }
+        return true;
       }
-      return true; // Keep message channel open for async response
-    }
-  }
-);
 
-console.log('[AITmarks] Content script loaded');
+      // 提取页面信息
+      if (message.type === 'EXTRACT_PAGE_INFO') {
+        // 使用异步处理，避免阻塞
+        (async () => {
+          try {
+            console.log('[ContentScript] Starting page info extraction...');
+            
+            // 检查文档是否准备就绪
+            if (document.readyState === 'loading') {
+              console.log('[ContentScript] Document still loading, waiting...');
+              await new Promise(resolve => {
+                if (document.readyState === 'loading') {
+                  document.addEventListener('DOMContentLoaded', resolve, { once: true });
+                } else {
+                  resolve(null);
+                }
+              });
+            }
+
+            const pageInfo = extractor.extract();
+            
+            // 验证提取的数据
+            if (!pageInfo.url) {
+              console.warn('[ContentScript] Extracted page info missing URL');
+              pageInfo.url = window.location.href;
+            }
+            if (!pageInfo.title) {
+              console.warn('[ContentScript] Extracted page info missing title');
+              pageInfo.title = document.title || 'Untitled';
+            }
+
+            console.log('[ContentScript] Successfully extracted page info:', {
+              title: pageInfo.title,
+              url: pageInfo.url,
+              hasDescription: !!pageInfo.description,
+              hasThumbnail: !!pageInfo.thumbnail,
+              contentLength: pageInfo.content?.length || 0
+            });
+
+            sendResponse({
+              success: true,
+              data: pageInfo
+            });
+          } catch (error) {
+            console.error('[ContentScript] Failed to extract page info:', error);
+            
+            // 即使失败也返回基本信息
+            sendResponse({
+              success: true,
+              data: {
+                title: document.title || 'Untitled',
+                url: window.location.href,
+                description: '',
+                content: '',
+                thumbnail: ''
+              }
+            });
+          }
+        })();
+        
+        return true; // Keep message channel open for async response
+      }
+
+      // 未知消息类型
+      console.warn('[ContentScript] Unknown message type:', message.type);
+      return false;
+    }
+  );
+
+  console.log('[AITmarks] Content script loaded successfully');
+}

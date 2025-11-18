@@ -52,8 +52,12 @@ export function useCreateBookmark() {
 
   return useMutation({
     mutationFn: (data: CreateBookmarkRequest) => bookmarksService.createBookmark(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [BOOKMARKS_QUERY_KEY] })
+    onSuccess: async () => {
+      try {
+        await queryClient.invalidateQueries({ queryKey: [BOOKMARKS_QUERY_KEY] })
+      } catch (error) {
+        console.error('Failed to invalidate queries:', error)
+      }
     },
   })
 }
@@ -67,8 +71,12 @@ export function useUpdateBookmark() {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateBookmarkRequest }) =>
       bookmarksService.updateBookmark(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [BOOKMARKS_QUERY_KEY] })
+    onSuccess: async () => {
+      try {
+        await queryClient.invalidateQueries({ queryKey: [BOOKMARKS_QUERY_KEY] })
+      } catch (error) {
+        console.error('Failed to invalidate queries:', error)
+      }
     },
   })
 }
@@ -81,8 +89,12 @@ export function useDeleteBookmark() {
 
   return useMutation({
     mutationFn: (id: string) => bookmarksService.deleteBookmark(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [BOOKMARKS_QUERY_KEY] })
+    onSuccess: async () => {
+      try {
+        await queryClient.invalidateQueries({ queryKey: [BOOKMARKS_QUERY_KEY] })
+      } catch (error) {
+        console.error('Failed to invalidate queries:', error)
+      }
     },
   })
 }
@@ -95,8 +107,12 @@ export function useRestoreBookmark() {
 
   return useMutation({
     mutationFn: (id: number) => bookmarksService.restoreBookmark(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [BOOKMARKS_QUERY_KEY] })
+    onSuccess: async () => {
+      try {
+        await queryClient.invalidateQueries({ queryKey: [BOOKMARKS_QUERY_KEY] })
+      } catch (error) {
+        console.error('Failed to invalidate queries:', error)
+      }
     },
   })
 }
@@ -118,8 +134,14 @@ export function useBatchAction() {
 
   return useMutation({
     mutationFn: (data: BatchActionRequest) => bookmarksService.batchAction(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [BOOKMARKS_QUERY_KEY] })
+    onSuccess: async () => {
+      // 使用 catch 来防止 invalidateQueries 的错误影响 mutation 结果
+      try {
+        await queryClient.invalidateQueries({ queryKey: [BOOKMARKS_QUERY_KEY] })
+      } catch (error) {
+        console.error('Failed to invalidate queries:', error)
+        // 即使缓存失效失败也不应该让操作显示为失败
+      }
     },
   })
 }

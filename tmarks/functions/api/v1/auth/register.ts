@@ -110,19 +110,24 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
     }
 
-    // 记录审计日志
-    await db.prepare(
-      `INSERT INTO audit_logs (user_id, event_type, payload, ip, user_agent, created_at)
-       VALUES (?, 'user.registered', ?, ?, ?, ?)`
-    )
-      .bind(
-        userId,
-        JSON.stringify({ username, email: email || null }),
-        ip,
-        userAgent,
-        nowISO
+    // 记录审计日志 (失败不影响注册)
+    try {
+      await db.prepare(
+        `INSERT INTO audit_logs (user_id, event_type, payload, ip, user_agent, created_at)
+         VALUES (?, 'user.registered', ?, ?, ?, ?)`
       )
-      .run()
+        .bind(
+          userId,
+          JSON.stringify({ username, email: email || null }),
+          ip,
+          userAgent,
+          nowISO
+        )
+        .run()
+    } catch (auditError) {
+      // 审计日志失败不影响注册,只记录错误
+      console.error('Failed to create audit log:', auditError)
+    }
 
     return created({
       user: {

@@ -29,8 +29,9 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
   async (context) => {
     const userId = context.data.user_id
 
-  try {
-    const body = (await context.request.json()) as BatchActionRequest
+    let body: BatchActionRequest | null = null
+    try {
+    body = (await context.request.json()) as BatchActionRequest
     const { action, bookmark_ids, add_tag_ids, remove_tag_ids } = body
 
     // Validation
@@ -163,7 +164,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
           .bind(...bookmark_ids, userId)
           .all<{ id: string }>()
 
-        const validBookmarkIds = verifyResult.results.map((row) => row.id)
+        const validBookmarkIds = verifyResult.results.map((row: any) => row.id)
 
         if (validBookmarkIds.length === 0) {
           return new Response(
@@ -205,7 +206,7 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
             .bind(...add_tag_ids, userId)
             .all<{ id: string }>()
 
-          const validTagIds = tagsResult.results.map((row) => row.id)
+          const validTagIds = tagsResult.results.map((row: any) => row.id)
 
           if (validTagIds.length > 0) {
             // Insert bookmark_tags (ignore duplicates)
@@ -220,7 +221,8 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
                     )
                     .bind(bookmarkId, tagId, userId)
                     .run()
-                } catch {
+                } catch (e) {
+                  console.error(`Failed to add tag ${tagId} to bookmark ${bookmarkId}:`, e)
                   errors.push({
                     bookmark_id: bookmarkId,
                     message: `Failed to add tag ${tagId}`,
@@ -231,17 +233,21 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
 
             // Update tag usage count
             for (const tagId of validTagIds) {
-              await db
-                .prepare(
-                  `UPDATE tags
-                   SET usage_count = (
-                     SELECT COUNT(*) FROM bookmark_tags
-                     WHERE tag_id = ? AND user_id = ?
-                   )
-                   WHERE id = ? AND user_id = ?`
-                )
-                .bind(tagId, userId, tagId, userId)
-                .run()
+              try {
+                await db
+                  .prepare(
+                    `UPDATE tags
+                     SET usage_count = (
+                       SELECT COUNT(*) FROM bookmark_tags
+                       WHERE tag_id = ? AND user_id = ?
+                     )
+                     WHERE id = ? AND user_id = ?`
+                  )
+                  .bind(tagId, userId, tagId, userId)
+                  .run()
+              } catch (e) {
+                console.error(`Failed to update usage count for tag ${tagId}:`, e)
+              }
             }
           }
         }
@@ -300,11 +306,19 @@ export const onRequestPatch: PagesFunction<Env, RouteParams, AuthContext>[] = [
       headers: { 'Content-Type': 'application/json' },
     })
   } catch (error) {
-    console.error('Batch operation error:', error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorStack = error instanceof Error ? error.stack : ''
+    console.error('Batch operation error:', {
+      message: errorMessage,
+      stack: errorStack,
+      action: body?.action,
+      bookmarkCount: body?.bookmark_ids?.length,
+    })
     return new Response(
       JSON.stringify({
         code: 'INTERNAL_ERROR',
         message: 'Failed to perform batch operation',
+        details: errorMessage,
       }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )

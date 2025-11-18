@@ -74,7 +74,7 @@ export function CreateApiKeyModal({ onClose }: CreateApiKeyModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 bg-background flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-background flex items-center justify-center" style={{ zIndex: 200 }}>
       <div className="card rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         {/* 步骤 1: 基本信息 */}
         {step === 'basic' && (

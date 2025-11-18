@@ -123,15 +123,16 @@ export function BatchActionBar({
         add_tag_ids: mode === 'add' ? selectedTagIds : undefined,
         remove_tag_ids: mode === 'remove' ? selectedTagIds : undefined,
       })
-      setSelectedTagIds([])
-      setShowTagMenu(false)
-      onClearSelection()
-      onSuccess?.()
       const message = mode === 'add'
         ? `成功为 ${selectedIds.length} 个书签添加标签`
         : `成功为 ${selectedIds.length} 个书签移除标签`
       setSuccessMessage(message)
       setShowSuccessAlert(true)
+      // 操作成功后清除选择
+      setSelectedTagIds([])
+      setShowTagMenu(false)
+      onClearSelection()
+      onSuccess?.()
     } catch (error) {
       console.error('Batch update tags failed:', error)
       setShowErrorAlert(true)

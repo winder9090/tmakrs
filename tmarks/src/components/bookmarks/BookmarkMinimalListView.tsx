@@ -19,13 +19,14 @@ export function BookmarkMinimalListView({
   onToggleSelect,
 }: BookmarkMinimalListViewProps) {
   return (
-    <div className="rounded-xl border border-base-300 overflow-hidden">
-      <div className={`grid ${batchMode ? 'grid-cols-[auto_minmax(0,2fr)_minmax(0,2fr)_minmax(0,2fr)_auto]' : 'grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,2fr)_auto]'} gap-4 px-4 py-2 text-xs uppercase tracking-wide text-base-content/50 bg-base-200`}>
+    <div className="rounded-xl border border-base-300 overflow-hidden overflow-x-auto">
+      {/* 表头 - 移动端只显示标题和操作 */}
+      <div className={`grid ${batchMode ? 'grid-cols-[auto_1fr_auto] sm:grid-cols-[auto_minmax(0,2fr)_minmax(0,2fr)_minmax(0,2fr)_auto]' : 'grid-cols-[1fr_auto] sm:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,2fr)_auto]'} gap-2 sm:gap-4 px-3 sm:px-4 py-2 text-xs uppercase tracking-wide text-base-content/50 bg-base-200`}>
         {batchMode && <span></span>}
         <span>标题</span>
-        <span>网址</span>
-        <span>备注</span>
-        <span className="text-right">{readOnly ? '' : '操作'}</span>
+        <span className="hidden sm:block">网址</span>
+        <span className="hidden sm:block">备注</span>
+        <span className="text-right sm:block">{readOnly ? '' : ''}</span>
       </div>
       <div>
         {bookmarks.map((bookmark) => (
@@ -71,7 +72,7 @@ function MinimalRow({
   }
 
   return (
-    <div className={`grid ${batchMode ? 'grid-cols-[auto_minmax(0,2fr)_minmax(0,2fr)_minmax(0,2fr)_auto]' : 'grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,2fr)_auto]'} gap-4 px-4 py-3 text-sm items-center border-t border-base-200 first:border-t-0 hover:bg-base-200/60 ${
+    <div className={`grid ${batchMode ? 'grid-cols-[auto_1fr_auto] sm:grid-cols-[auto_minmax(0,2fr)_minmax(0,2fr)_minmax(0,2fr)_auto]' : 'grid-cols-[1fr_auto] sm:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,2fr)_auto]'} gap-2 sm:gap-4 px-3 sm:px-4 py-3 text-sm items-center border-t border-base-200 first:border-t-0 hover:bg-base-200/60 ${
       batchMode && isSelected ? 'bg-primary/10' : ''
     }`}>
       {batchMode && onToggleSelect && (
@@ -97,27 +98,35 @@ function MinimalRow({
           </button>
         </div>
       )}
+      
+      {/* 标题 */}
       <button
         type="button"
         onClick={handleVisit}
-        className="text-left font-medium truncate hover:text-primary"
+        className="text-left font-medium text-sm sm:text-base truncate hover:text-primary min-w-0"
         title={bookmark.title}
       >
         {bookmark.title || bookmark.url}
       </button>
+      
+      {/* 网址 - 移动端隐藏 */}
       <a
         href={bookmark.url}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-xs text-primary truncate hover:underline"
+        className="hidden sm:block text-xs text-primary truncate hover:underline min-w-0"
         title={bookmark.url}
       >
         {bookmark.url}
       </a>
-      <span className="text-xs text-base-content/70 truncate" title={bookmark.description || undefined}>
+      
+      {/* 备注 - 移动端隐藏 */}
+      <span className="hidden sm:block text-xs text-base-content/70 truncate min-w-0" title={bookmark.description || undefined}>
         {bookmark.description || '—'}
       </span>
-      <div className="flex justify-end">
+      
+      {/* 操作按钮 */}
+      <div className="flex justify-end items-center">
         {!!onEdit && !readOnly && !batchMode ? (
           <button
             type="button"
@@ -126,9 +135,12 @@ function MinimalRow({
               event.stopPropagation()
               onEdit()
             }}
-            className="text-xs font-medium px-3 py-1 rounded-md bg-base-300 hover:bg-base-200 transition-colors"
+            className="w-8 h-8 rounded-md flex items-center justify-center hover:bg-base-300 transition-colors text-base-content/70 hover:text-base-content"
+            title="编辑"
           >
-            编辑
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
           </button>
         ) : null}
       </div>

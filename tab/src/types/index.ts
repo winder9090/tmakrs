@@ -229,7 +229,8 @@ export type MessageType =
   | 'SAVE_BOOKMARK'
   | 'SYNC_CACHE'
   | 'GET_CONFIG'
-  | 'GET_EXISTING_TAGS';
+  | 'GET_EXISTING_TAGS'
+  | 'PING';
 
 export interface Message<T = any> {
   type: MessageType;

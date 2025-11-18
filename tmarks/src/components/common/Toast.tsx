@@ -77,7 +77,7 @@ export function Toast({ id, type, message, duration = 3000, onClose }: ToastProp
 
 export function ToastContainer({ toasts, onClose }: { toasts: ToastProps[]; onClose: (id: string) => void }) {
   return (
-    <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2">
+    <div className="fixed top-4 right-4 flex flex-col gap-2" style={{ zIndex: 300 }}>
       {toasts.map((toast) => (
         <Toast key={toast.id} {...toast} onClose={onClose} />
       ))}

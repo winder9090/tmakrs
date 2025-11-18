@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "node scripts/build-and-pack.mjs",
+    "build:only": "tsc && vite build",
     "preview": "vite preview",
     "icons": "node scripts/generate-icons.mjs"
   },
@@ -21,6 +22,7 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.4",
+    "archiver": "^7.0.1",
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.6",
     "sharp": "^0.34.4",

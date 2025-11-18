@@ -35,7 +35,7 @@ export function ApiKeyDetailModal({ apiKey, onClose }: ApiKeyDetailModalProps) {
   }[key.status]
 
   return (
-    <div className="fixed inset-0 bg-background flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-background flex items-center justify-center" style={{ zIndex: 200 }}>
       <div className="card rounded-2xl shadow-2xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           {/* 标题 */}

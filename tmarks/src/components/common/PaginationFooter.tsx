@@ -22,17 +22,9 @@ export function PaginationFooter({
       {/* 统计信息 */}
       <div className="text-sm text-base-content/60 mb-4">
         {hasMore ? (
-          <>
-            已加载 {totalLoaded} 个书签
-            {currentCount > 0 && <span>，当前显示 {currentCount} 个</span>}
-          </>
+          <>已加载 {totalLoaded} 个书签</>
         ) : (
-          <>
-            共 {totalLoaded} 个书签
-            {currentCount > 0 && currentCount !== totalLoaded && (
-              <span>，当前显示 {currentCount} 个</span>
-            )}
-          </>
+          <>共 {totalLoaded} 个书签</>
         )}
       </div>
 

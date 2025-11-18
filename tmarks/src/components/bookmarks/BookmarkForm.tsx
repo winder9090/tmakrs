@@ -235,7 +235,7 @@ export function BookmarkForm({ bookmark, onClose, onSuccess }: BookmarkFormProps
   const isPending = createBookmark.isPending || updateBookmark.isPending || deleteBookmark.isPending || createTag.isPending
 
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-[9998] p-4">
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4" style={{ zIndex: 200 }}>
       <div className="card w-full max-w-4xl max-h-[92vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-foreground">

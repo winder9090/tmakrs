@@ -34,7 +34,7 @@ export function TagFormModal({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+    <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex: 210 }}>
       <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={onCancel} />
       <div className="relative w-full max-w-sm card p-5 space-y-4 animate-scale-in border border-border shadow-2xl rounded-xl">
         <div>

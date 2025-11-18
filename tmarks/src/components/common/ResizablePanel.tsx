@@ -73,7 +73,7 @@ export function ResizablePanel({
   return (
     <div
       ref={panelRef}
-      className="relative flex-shrink-0 bg-card"
+      className="relative flex-shrink-0 bg-card h-full"
       style={{ width: `${width}px` }}
     >
       {children}

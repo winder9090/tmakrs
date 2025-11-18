@@ -6,13 +6,14 @@ interface AdaptiveImageProps {
   alt: string
   className?: string
   onTypeDetected?: (type: ImageType) => void
+  onError?: () => void
 }
 
 /**
  * 自适应图片组件
  * 根据图片比例自动判断类型并应用不同的样式
  */
-export const AdaptiveImage = memo(function AdaptiveImage({ src, alt, className = '', onTypeDetected }: AdaptiveImageProps) {
+export const AdaptiveImage = memo(function AdaptiveImage({ src, alt, className = '', onTypeDetected, onError }: AdaptiveImageProps) {
   const [imageType, setImageType] = useState<ImageType>('unknown')
   const [isLoaded, setIsLoaded] = useState(false)
   const [hasError, setHasError] = useState(false)
@@ -31,13 +32,14 @@ export const AdaptiveImage = memo(function AdaptiveImage({ src, alt, className =
         if (!cancelled) {
           setImageType('unknown')
           setHasError(true)
+          onError?.()
         }
       })
 
     return () => {
       cancelled = true
     }
-  }, [src, onTypeDetected])
+  }, [src, onTypeDetected, onError])
 
   const handleLoad = useCallback(() => {
     setIsLoaded(true)
@@ -47,7 +49,8 @@ export const AdaptiveImage = memo(function AdaptiveImage({ src, alt, className =
   const handleError = useCallback(() => {
     setHasError(true)
     setIsLoaded(false)
-  }, [])
+    onError?.()
+  }, [onError])
 
   if (hasError) {
     return null
