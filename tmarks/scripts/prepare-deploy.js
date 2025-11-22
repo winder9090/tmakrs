@@ -41,7 +41,7 @@ const targetFunctionsDir = path.join(deployDir, 'functions');
 copyDir(functionsDir, targetFunctionsDir);
 
 console.log('✅ 部署准备完成!');
-console.log(`📁 部署目录: ${deployDir}`);
+console.log(`� 部署目录库: ${deployDir}`);
 
 /**
  * 递归复制目录

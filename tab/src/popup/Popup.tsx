@@ -5,6 +5,7 @@ import { PageInfoCard } from '@/components/PageInfoCard';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ErrorMessage } from '@/components/ErrorMessage';
 import { SuccessMessage } from '@/components/SuccessMessage';
+import { LoadingMessage } from '@/components/LoadingMessage';
 import { BookmarkExistsDialog } from '@/components/BookmarkExistsDialog';
 import { ModeSelector } from './ModeSelector';
 import { TabCollectionView } from './TabCollectionView';
@@ -22,6 +23,7 @@ export function Popup() {
     isRecommending,
     error,
     successMessage,
+    loadingMessage,
     existingBookmark,
     config,
     loadConfig,
@@ -263,7 +265,7 @@ export function Popup() {
     <div className="relative h-[80vh] min-h-[620px] w-[380px] overflow-hidden rounded-2xl bg-white text-gray-900 shadow-2xl">
 
       <div className="relative flex h-full flex-col">
-        <div className="pointer-events-none absolute top-16 left-0 right-0 z-[9999] px-4 space-y-2">
+        <div className="pointer-events-none absolute top-16 left-0 right-0 z-30 px-4 space-y-2">
           {error && (
             <div className="pointer-events-auto">
               <ErrorMessage
@@ -273,6 +275,11 @@ export function Popup() {
               />
             </div>
           )}
+          {loadingMessage && (
+            <div className="pointer-events-auto">
+              <LoadingMessage message={loadingMessage} />
+            </div>
+          )}
           {successMessage && (
             <div className="pointer-events-auto">
               <SuccessMessage message={successMessage} />
@@ -280,7 +287,7 @@ export function Popup() {
           )}
         </div>
 
-        <header className="fixed top-0 left-0 right-0 z-40 px-3 pt-2 pb-2.5 bg-white border-b border-gray-200 shadow-sm rounded-b-2xl">
+        <header className="fixed top-0 left-0 right-0 z-20 px-3 pt-2 pb-2.5 bg-white border-b border-gray-200 shadow-sm rounded-b-2xl">
           <div className="flex items-center gap-2">
             <button
               onClick={handleBackToSelector}
@@ -531,7 +538,7 @@ export function Popup() {
         </main>
 
         {/* Fixed Footer - Custom Tag Input */}
-        <footer className="fixed bottom-0 left-0 right-0 z-40 px-3 pt-2 pb-2.5 bg-white border-t border-gray-200 shadow-sm rounded-t-2xl">
+        <footer className="fixed bottom-0 left-0 right-0 z-20 px-3 pt-2 pb-2.5 bg-white border-t border-gray-200 shadow-sm rounded-t-2xl">
           <div className="flex items-center gap-2">
             <svg className="h-4 w-4 flex-shrink-0 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -561,14 +568,14 @@ export function Popup() {
         <BookmarkExistsDialog
           bookmark={existingBookmark}
           newTags={selectedTags}
-          onUpdateTags={(tags) => {
+          onUpdateTags={async (tags) => {
             if (existingBookmark.id) {
-              updateExistingBookmarkTags(existingBookmark.id, tags);
+              await updateExistingBookmarkTags(existingBookmark.id, tags);
             }
           }}
-          onCreateSnapshot={() => {
+          onCreateSnapshot={async () => {
             if (existingBookmark.id) {
-              createSnapshotForBookmark(existingBookmark.id);
+              await createSnapshotForBookmark(existingBookmark.id);
             }
           }}
           onCancel={() => setExistingBookmark(null)}

@@ -31,41 +31,58 @@ export async function capturePage(options: Partial<CaptureOptions> = {}): Promis
   const startTime = Date.now()
   
   try {
+    console.log('[SingleFile] Starting capture with options:', finalOptions)
+    
     // 克隆文档
     const doc = document.cloneNode(true) as Document
+    console.log('[SingleFile] Document cloned')
     
     // 1. 内联 CSS
     if (finalOptions.inlineCSS) {
+      console.log('[SingleFile] Inlining CSS...')
       await inlineStylesheets(doc, finalOptions.timeout!)
     }
     
     // 2. 内联图片
     if (finalOptions.inlineImages) {
+      console.log('[SingleFile] Inlining images...')
       await inlineImages(doc, finalOptions.maxImageSize!, finalOptions.timeout!)
     }
     
     // 3. 内联字体（可选）
     if (finalOptions.inlineFonts) {
+      console.log('[SingleFile] Inlining fonts...')
       await inlineFonts(doc, finalOptions.timeout!)
     }
     
     // 4. 移除脚本
     if (finalOptions.removeScripts) {
+      console.log('[SingleFile] Removing scripts...')
       removeScripts(doc)
     }
     
     // 5. 移除隐藏元素（可选）
     if (finalOptions.removeHiddenElements) {
+      console.log('[SingleFile] Removing hidden elements...')
       removeHiddenElements(doc)
     }
     
     // 6. 添加元数据
+    console.log('[SingleFile] Adding metadata...')
     addMetadata(doc)
     
-    const duration = Date.now() - startTime
-    console.log(`[SingleFile] Capture completed in ${duration}ms`)
+    const html = doc.documentElement.outerHTML
+    const htmlSize = new Blob([html]).size
     
-    return doc.documentElement.outerHTML
+    // 统计 data: URL 的数量
+    const dataUrlCount = (html.match(/src="data:/g) || []).length
+    const duration = Date.now() - startTime
+    
+    console.log(`[SingleFile] Capture completed in ${duration}ms`)
+    console.log(`[SingleFile] HTML size: ${(htmlSize / 1024).toFixed(1)}KB`)
+    console.log(`[SingleFile] Data URLs in HTML: ${dataUrlCount}`)
+    
+    return html
   } catch (error) {
     console.error('[SingleFile] Capture error:', error)
     throw error
@@ -164,6 +181,9 @@ async function inlineImages(doc: Document, maxSize: number, timeout: number): Pr
   const startTime = Date.now()
   let inlinedCount = 0
   let skippedCount = 0
+  let alreadyInlinedCount = 0
+  
+  console.log(`[SingleFile] Found ${images.length} images to process`)
   
   for (const img of images) {
     if (Date.now() - startTime > timeout) {
@@ -173,12 +193,28 @@ async function inlineImages(doc: Document, maxSize: number, timeout: number): Pr
     
     try {
       const src = (img as HTMLImageElement).src
-      if (!src || src.startsWith('data:')) continue
+      if (!src) {
+        skippedCount++
+        continue
+      }
+      
+      // 已经是 data URL，跳过
+      if (src.startsWith('data:')) {
+        alreadyInlinedCount++
+        continue
+      }
+      
+      console.log(`[SingleFile] Processing image: ${src.substring(0, 100)}...`)
       
       const response = await fetch(src)
-      if (!response.ok) continue
+      if (!response.ok) {
+        console.warn(`[SingleFile] Failed to fetch image (${response.status}): ${src}`)
+        skippedCount++
+        continue
+      }
       
       const blob = await response.blob()
+      console.log(`[SingleFile] Image fetched: ${blob.type}, ${(blob.size / 1024).toFixed(1)}KB`)
       
       // 检查大小
       if (blob.size > maxSize) {
@@ -188,16 +224,21 @@ async function inlineImages(doc: Document, maxSize: number, timeout: number): Pr
       }
       
       const base64 = await blobToBase64(blob)
+      const base64Length = base64.length
+      console.log(`[SingleFile] Image converted to base64: ${(base64Length / 1024).toFixed(1)}KB, starts with: ${base64.substring(0, 50)}...`)
+      
       ;(img as HTMLImageElement).src = base64
       ;(img as HTMLImageElement).setAttribute('data-original-src', src)
       inlinedCount++
+      
+      console.log(`[SingleFile] Image inlined successfully: ${src.substring(0, 100)}`)
     } catch (error) {
       console.warn(`[SingleFile] Failed to inline image: ${(img as HTMLImageElement).src}`, error)
       skippedCount++
     }
   }
   
-  console.log(`[SingleFile] Images: ${inlinedCount} inlined, ${skippedCount} skipped`)
+  console.log(`[SingleFile] Images summary: ${inlinedCount} inlined, ${alreadyInlinedCount} already inline, ${skippedCount} skipped, total: ${images.length}`)
 }
 
 /**

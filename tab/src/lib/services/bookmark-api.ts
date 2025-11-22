@@ -19,7 +19,7 @@ export class BookmarkAPIClient {
     if (!apiKey) {
       throw new AppError(
         'API_KEY_INVALID' as ErrorCode,
-        'TMarks API key is required. Please configure your API key in the extension settings.'
+        'API Key not found. Please configure your TMarks API key in the extension settings (Options page).'
       );
     }
 
@@ -55,7 +55,7 @@ export class BookmarkAPIClient {
     if (!this.client) {
       throw new AppError(
         'API_KEY_INVALID' as ErrorCode,
-        'Failed to initialize TMarks client'
+        'API Key not found. Failed to initialize TMarks client. Please configure your API key in the extension settings.'
       );
     }
     return this.client;
@@ -235,6 +235,64 @@ export class BookmarkAPIClient {
       throw new AppError(
         'BOOKMARK_SITE_ERROR' as ErrorCode,
         `Failed to create snapshot: ${error.message}`,
+        { originalError: error }
+      );
+    }
+  }
+
+  /**
+   * Create a snapshot for a bookmark (V2 - with separate images)
+   */
+  async createSnapshotV2(
+    bookmarkId: string,
+    data: {
+      html_content: string;
+      title: string;
+      url: string;
+      images: Array<{
+        hash: string;
+        data: string;
+        type: string;
+      }>;
+    }
+  ): Promise<void> {
+    await this.ensureClient();
+
+    try {
+      // 使用 V2 API 端点
+      const apiKey = await StorageService.getBookmarkSiteApiKey();
+      const configuredUrl = await StorageService.getBookmarkSiteApiUrl();
+      
+      let apiBaseUrl: string;
+      if (configuredUrl) {
+        if (configuredUrl.endsWith('/api')) {
+          apiBaseUrl = configuredUrl;
+        } else {
+          apiBaseUrl = getTMarksUrls(configuredUrl).API_BASE;
+        }
+      } else {
+        apiBaseUrl = getTMarksUrls().API_BASE;
+      }
+
+      const response = await fetch(`${apiBaseUrl}/tab/bookmarks/${bookmarkId}/snapshots-v2`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': apiKey!,
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || 'Failed to create snapshot');
+      }
+
+      console.log('[BookmarkAPI] Snapshot V2 created successfully for bookmark:', bookmarkId);
+    } catch (error: any) {
+      throw new AppError(
+        'BOOKMARK_SITE_ERROR' as ErrorCode,
+        `Failed to create snapshot (V2): ${error.message}`,
         { originalError: error }
       );
     }

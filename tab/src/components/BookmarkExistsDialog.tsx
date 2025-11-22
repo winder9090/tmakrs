@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { StorageService } from '@/lib/utils/storage';
+import { LoadingMessage } from '@/components/LoadingMessage';
 
 interface ExistingBookmark {
   id: string;
@@ -13,8 +15,8 @@ interface ExistingBookmark {
 interface BookmarkExistsDialogProps {
   bookmark: ExistingBookmark;
   newTags: string[];
-  onUpdateTags: (tags: string[]) => void;
-  onCreateSnapshot: () => void;
+  onUpdateTags: (tags: string[]) => Promise<void>;
+  onCreateSnapshot: () => Promise<void>;
   onCancel: () => void;
 }
 
@@ -26,6 +28,20 @@ export function BookmarkExistsDialog({
   onCancel,
 }: BookmarkExistsDialogProps) {
   const [selectedAction, setSelectedAction] = useState<'snapshot' | 'update-tags' | null>(null);
+  const [tmarksUrl, setTmarksUrl] = useState<string>('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingMessage, setProcessingMessage] = useState('');
+
+  useEffect(() => {
+    // Load TMarks URL from storage
+    StorageService.getBookmarkSiteApiUrl().then(url => {
+      if (url) {
+        // Remove /api suffix if present
+        const baseUrl = url.replace(/\/api$/, '');
+        setTmarksUrl(baseUrl);
+      }
+    });
+  }, []);
 
   const existingTagNames = bookmark.tags.map(t => t.name);
   const newTagsToAdd = newTags.filter(tag => !existingTagNames.includes(tag));
@@ -42,17 +58,57 @@ export function BookmarkExistsDialog({
     });
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (selectedAction === 'snapshot') {
-      onCreateSnapshot();
+      setIsProcessing(true);
+      setProcessingMessage('正在捕获页面内容...');
+      
+      try {
+        await onCreateSnapshot();
+        setProcessingMessage('快照创建成功！');
+        
+        // 成功后延迟关闭
+        setTimeout(() => {
+          setIsProcessing(false);
+          onCancel(); // 关闭对话框
+        }, 1500);
+      } catch (error) {
+        setProcessingMessage('快照创建失败');
+        setTimeout(() => {
+          setIsProcessing(false);
+        }, 2000);
+      }
     } else if (selectedAction === 'update-tags') {
-      onUpdateTags(newTags);
+      setIsProcessing(true);
+      setProcessingMessage('正在更新标签...');
+      
+      try {
+        await onUpdateTags(newTags);
+        setProcessingMessage('标签更新成功！');
+        
+        setTimeout(() => {
+          setIsProcessing(false);
+          onCancel();
+        }, 1500);
+      } catch (error) {
+        setProcessingMessage('标签更新失败');
+        setTimeout(() => {
+          setIsProcessing(false);
+        }, 2000);
+      }
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+      {/* Loading Message - 显示在对话框上方 */}
+      {isProcessing && (
+        <div className="absolute top-4 left-0 right-0 px-4 z-50">
+          <LoadingMessage message={processingMessage} />
+        </div>
+      )}
+      
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 rounded-t-xl">
           <div className="flex items-start gap-3">
@@ -126,25 +182,41 @@ export function BookmarkExistsDialog({
             )}
 
             {/* 快照信息 */}
-            <div className="flex items-center gap-2 text-sm">
-              <svg
-                className="w-4 h-4 text-gray-500 dark:text-gray-400"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
-              <span className="text-gray-700 dark:text-gray-300">
-                {bookmark.has_snapshot
-                  ? `已有 ${bookmark.snapshot_count || 0} 个快照`
-                  : '暂无快照'}
-              </span>
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2">
+                <svg
+                  className="w-4 h-4 text-gray-500 dark:text-gray-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+                <span className="text-gray-700 dark:text-gray-300">
+                  {bookmark.has_snapshot
+                    ? `已有 ${bookmark.snapshot_count || 0} 个快照`
+                    : '暂无快照'}
+                </span>
+              </div>
+              {bookmark.has_snapshot && tmarksUrl && (
+                <a
+                  href={`${tmarksUrl}/bookmarks/${bookmark.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  查看快照
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+              )}
             </div>
           </div>
 
@@ -229,20 +301,23 @@ export function BookmarkExistsDialog({
           </div>
         </div>
 
+
+
         {/* Footer */}
         <div className="sticky bottom-0 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700 px-6 py-4 rounded-b-xl flex gap-3">
           <button
             onClick={onCancel}
-            className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            disabled={isProcessing}
+            className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             取消
           </button>
           <button
             onClick={handleConfirm}
-            disabled={!selectedAction}
+            disabled={!selectedAction || isProcessing}
             className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-700 disabled:cursor-not-allowed transition-colors"
           >
-            确认
+            {isProcessing ? '处理中...' : '确认'}
           </button>
         </div>
       </div>

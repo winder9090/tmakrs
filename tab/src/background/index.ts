@@ -342,28 +342,68 @@ async function handleMessage(
       try {
         const { bookmarkId, title, url } = message.payload;
         
-        // Get the current tab's HTML content
+        // Get the current tab
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (!tab || !tab.id) {
           throw new Error('No active tab found');
         }
 
-        // Import snapshot service dynamically
-        const { capturePageSnapshot } = await import('../lib/services/snapshot-service');
+        console.log('[Background] Starting snapshot capture (V2)...');
+
+        // Capture page using V2 method (separate images)
+        let captureResult: { html: string; images: any[] };
+        try {
+          const capturePromise = chrome.tabs.sendMessage(tab.id, {
+            type: 'CAPTURE_PAGE_V2',
+            options: {
+              inlineCSS: true,
+              extractImages: true,
+              inlineFonts: false,
+              removeScripts: true,
+              removeHiddenElements: false,
+              maxImageSize: 100 * 1024 * 1024, // 提高到 100MB
+              timeout: 30000
+            }
+          });
+          
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Capture timeout')), 35000);
+          });
+          
+          const response = await Promise.race([capturePromise, timeoutPromise]) as any;
+          
+          if (response.success) {
+            captureResult = response.data;
+            console.log(`[Background] Captured (V2): HTML ${(captureResult.html.length / 1024).toFixed(1)}KB, ${captureResult.images.length} images`);
+          } else {
+            throw new Error(response.error || 'Capture failed');
+          }
+        } catch (error) {
+          console.error('[Background] V2 capture failed:', error);
+          throw error;
+        }
         
-        // Capture page HTML
-        const htmlContent = await capturePageSnapshot(tab.id);
-        
-        // Create snapshot via API
-        await bookmarkAPI.createSnapshot(bookmarkId, {
-          html_content: htmlContent,
+        // Prepare images for upload
+        const images = captureResult.images.map((img: any) => ({
+          hash: img.hash,
+          data: img.data, // base64
+          type: img.type,
+        }));
+
+        // Create snapshot via V2 API
+        await bookmarkAPI.createSnapshotV2(bookmarkId, {
+          html_content: captureResult.html,
           title,
-          url
+          url,
+          images,
         });
 
         return {
           success: true,
-          data: { message: 'Snapshot created successfully' }
+          data: { 
+            message: 'Snapshot created successfully (V2)',
+            imageCount: images.length,
+          }
         };
       } catch (error) {
         console.error('[Background] Failed to create snapshot:', error);

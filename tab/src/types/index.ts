@@ -247,6 +247,7 @@ export type MessageType =
   | 'GET_EXISTING_TAGS'
   | 'UPDATE_BOOKMARK_TAGS'
   | 'CAPTURE_PAGE'
+  | 'CAPTURE_PAGE_V2'
   | 'PING';
 
 export interface Message<T = any> {

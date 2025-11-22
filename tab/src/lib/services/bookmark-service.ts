@@ -76,23 +76,60 @@ export class BookmarkService {
     // 5. Create snapshot if requested (works for both new and existing bookmarks)
     if (bookmark.createSnapshot && bookmarkId) {
       try {
-        // Get the current tab's HTML content
+        console.log('[BookmarkService] Creating snapshot (V2)...');
+        
+        // Get the current tab
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (tab && tab.id) {
-          // Import snapshot service dynamically
-          const { capturePageSnapshot } = await import('./snapshot-service');
+          // Capture page using V2 method (separate images)
+          let captureResult: { html: string; images: any[] };
+          try {
+            const capturePromise = chrome.tabs.sendMessage(tab.id, {
+              type: 'CAPTURE_PAGE_V2',
+              options: {
+                inlineCSS: true,
+                extractImages: true,
+                inlineFonts: false,
+                removeScripts: true,
+                removeHiddenElements: false,
+                maxImageSize: 100 * 1024 * 1024, // 提高到 100MB
+                timeout: 30000
+              }
+            });
+            
+            const timeoutPromise = new Promise((_, reject) => {
+              setTimeout(() => reject(new Error('Capture timeout')), 35000);
+            });
+            
+            const response = await Promise.race([capturePromise, timeoutPromise]) as any;
+            
+            if (response.success) {
+              captureResult = response.data;
+              console.log(`[BookmarkService] Captured (V2): HTML ${(captureResult.html.length / 1024).toFixed(1)}KB, ${captureResult.images.length} images`);
+            } else {
+              throw new Error(response.error || 'Capture failed');
+            }
+          } catch (error) {
+            console.error('[BookmarkService] V2 capture failed:', error);
+            throw error;
+          }
           
-          // Capture page HTML
-          const htmlContent = await capturePageSnapshot(tab.id);
-          
-          // Create snapshot via API
-          await bookmarkAPI.createSnapshot(bookmarkId, {
-            html_content: htmlContent,
+          // Prepare images for upload
+          const images = captureResult.images.map((img: any) => ({
+            hash: img.hash,
+            data: img.data, // base64
+            type: img.type,
+          }));
+
+          // Create snapshot via V2 API
+          await bookmarkAPI.createSnapshotV2(bookmarkId, {
+            html_content: captureResult.html,
             title: bookmark.title,
-            url: bookmark.url
+            url: bookmark.url,
+            images,
           });
           
-          console.log('[BookmarkService] Snapshot created successfully');
+          console.log('[BookmarkService] Snapshot V2 created successfully, images:', images.length)
         }
       } catch (snapshotError) {
         console.error('[BookmarkService] Failed to create snapshot:', snapshotError);

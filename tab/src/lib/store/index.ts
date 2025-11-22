@@ -43,6 +43,9 @@ interface AppState {
   successMessage: string | null;
   setSuccessMessage: (message: string | null) => void;
 
+  loadingMessage: string | null;
+  setLoadingMessage: (message: string | null) => void;
+
   lastRecommendationSource: RecommendationResult['source'] | null;
   lastRecommendationMessage: string | null;
 
@@ -87,6 +90,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isRecommending: false,
   error: null,
   successMessage: null,
+  loadingMessage: null,
   lastRecommendationSource: null,
   lastRecommendationMessage: null,
   lastSaveDurationMs: null,
@@ -122,6 +126,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setLoading: (loading) => set({ isLoading: loading }),
   setError: (error) => set({ error }),
   setSuccessMessage: (message) => set({ successMessage: message }),
+  setLoadingMessage: (message) => set({ loadingMessage: message }),
   setIsPublic: (value) => {
     const defaultVisibility: 'public' | 'private' = value ? 'public' : 'private';
     const state = get();
@@ -500,12 +505,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!currentPage) return;
 
     try {
-      set({ isSaving: true, error: null });
+      set({ isSaving: true, error: null, loadingMessage: '正在捕获页面内容...', successMessage: null });
 
       // Get the current tab's HTML content
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tab && tab.id) {
-        const result = await sendMessage({
+        // sendMessage returns response.data directly (not the whole response object)
+        await sendMessage({
           type: 'CREATE_SNAPSHOT',
           payload: {
             bookmarkId,
@@ -514,31 +520,30 @@ export const useAppStore = create<AppState>((set, get) => ({
           }
         });
 
-        if (result.success) {
-          set({
-            successMessage: '快照已创建',
-            isSaving: false,
-            existingBookmark: null
-          });
+        // If we reach here, it means success (sendMessage throws on error)
+        set({
+          successMessage: '快照已创建',
+          loadingMessage: null,
+          isSaving: false,
+          existingBookmark: null
+        });
 
-          chrome.notifications.create({
-            type: 'basic',
-            iconUrl: '/icons/icon-128.png',
-            title: 'AI 书签助手',
-            message: '快照已成功创建'
-          });
-        } else {
-          throw new Error(result.error || '创建快照失败');
-        }
+        chrome.notifications.create({
+          type: 'basic',
+          iconUrl: '/icons/icon-128.png',
+          title: 'AI 书签助手',
+          message: '快照已成功创建'
+        });
+
+        setTimeout(() => {
+          set({ successMessage: null });
+        }, 3000); // 增加到3秒，让用户有时间看到成功消息
       }
-
-      setTimeout(() => {
-        set({ successMessage: null });
-      }, 2000);
     } catch (error) {
       console.error('Failed to create snapshot:', error);
       set({
         error: error instanceof Error ? error.message : 'Failed to create snapshot',
+        loadingMessage: null,
         isSaving: false
       });
     }

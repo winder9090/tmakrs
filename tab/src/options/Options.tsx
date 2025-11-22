@@ -607,7 +607,7 @@ export function Options() {
       </div>
 
       {isPresetModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
           <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-blue-500/20 bg-white/95 dark:bg-gray-900/95 shadow-xl">
             <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500" />
             <div className="p-6 pt-10 space-y-6">

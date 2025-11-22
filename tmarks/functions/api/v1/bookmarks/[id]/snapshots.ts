@@ -8,20 +8,8 @@ import type { PagesFunction } from '@cloudflare/workers-types'
 import type { Env } from '../../../../lib/types'
 import { success, badRequest, notFound, internalError } from '../../../../lib/response'
 import { requireAuth, AuthContext } from '../../../../middleware/auth'
-
-// 生成 nanoid 风格的短 ID（21 字符）
-function generateNanoId(): string {
-  const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-  const length = 21
-  const randomValues = new Uint8Array(length)
-  crypto.getRandomValues(randomValues)
-  
-  let id = ''
-  for (let i = 0; i < length; i++) {
-    id += alphabet[randomValues[i] % alphabet.length]
-  }
-  return id
-}
+import { generateSignedUrl } from '../../../../lib/signed-url'
+import { generateNanoId } from '../../../../lib/crypto'
 
 // 使用 Web Crypto API 计算 SHA-256 哈希
 async function sha256(content: string): Promise<string> {
@@ -41,7 +29,6 @@ interface CreateSnapshotRequest {
 
 // 配置常量
 const MAX_SNAPSHOT_SIZE = 50 * 1024 * 1024 // 50MB
-const COMPRESSION_THRESHOLD = 1 * 1024 * 1024 // 1MB - 超过此大小自动压缩
 
 // GET /api/v1/bookmarks/:id/snapshots - 获取快照列表
 export const onRequestGet: PagesFunction<Env, 'id', AuthContext>[] = [
@@ -75,9 +62,34 @@ export const onRequestGet: PagesFunction<Env, 'id', AuthContext>[] = [
         .bind(bookmarkId, userId)
         .all()
 
+      // 为每个快照生成签名 URL
+      const snapshotsWithUrls = await Promise.all(
+        (snapshots.results || []).map(async (snapshot: any) => {
+          // 生成 24 小时有效的签名 URL
+          const { signature, expires } = await generateSignedUrl(
+            {
+              userId,
+              resourceId: snapshot.id,
+              expiresIn: 24 * 3600, // 24 小时
+              action: 'view',
+            },
+            context.env.JWT_SECRET
+          )
+
+          // 构建签名 URL
+          const baseUrl = new URL(context.request.url).origin
+          const viewUrl = `${baseUrl}/api/v1/bookmarks/${bookmarkId}/snapshots/${snapshot.id}/view?sig=${signature}&exp=${expires}&u=${userId}&a=view`
+
+          return {
+            ...snapshot,
+            view_url: viewUrl,
+          }
+        })
+      )
+
       return success({
-        snapshots: snapshots.results || [],
-        total: snapshots.results?.length || 0,
+        snapshots: snapshotsWithUrls,
+        total: snapshotsWithUrls.length,
       })
     } catch (error) {
       console.error('Get snapshots error:', error)
@@ -163,72 +175,21 @@ export const onRequestPost: PagesFunction<Env, 'id', AuthContext>[] = [
       const timestamp = Date.now()
       const r2Key = `${userId}/${bookmarkId}/snapshot-${timestamp}-v${version}.html`
 
-      // 准备上传内容（自动压缩大文件）
-      let uploadContent: string | Uint8Array = html_content
-      let contentEncoding: string | undefined = undefined
-      let fileSize = originalSize
-
-      if (originalSize > COMPRESSION_THRESHOLD) {
-        try {
-          // 使用 gzip 压缩
-          const encoder = new TextEncoder()
-          const data = encoder.encode(html_content)
-          
-          const stream = new ReadableStream({
-            start(controller) {
-              controller.enqueue(data)
-              controller.close()
-            }
-          })
-          
-          const compressedStream = stream.pipeThrough(new CompressionStream('gzip'))
-          
-          const chunks: Uint8Array[] = []
-          const reader = compressedStream.getReader()
-          
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-            chunks.push(value)
-          }
-          
-          // 合并所有分块
-          const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0)
-          const compressed = new Uint8Array(totalLength)
-          let offset = 0
-          for (const chunk of chunks) {
-            compressed.set(chunk, offset)
-            offset += chunk.length
-          }
-          
-          uploadContent = compressed
-          contentEncoding = 'gzip'
-          fileSize = compressed.length
-          
-          const compressionRatio = ((1 - fileSize / originalSize) * 100).toFixed(1)
-          console.log(
-            `[Snapshot] Compressed: ${(originalSize / 1024).toFixed(1)}KB -> ${(fileSize / 1024).toFixed(1)}KB (${compressionRatio}% reduction)`
-          )
-        } catch (compressionError) {
-          console.error('[Snapshot] Compression failed, uploading uncompressed:', compressionError)
-          // 压缩失败，使用原始内容
-          uploadContent = html_content
-        }
-      }
-
-      // 上传到 R2
-      await bucket.put(r2Key, uploadContent, {
+      // 将 HTML 字符串转换为 UTF-8 编码的字节数组
+      const encoder = new TextEncoder()
+      const htmlBytes = encoder.encode(html_content)
+      
+      // 上传 UTF-8 编码的字节数组到 R2
+      await bucket.put(r2Key, htmlBytes, {
         httpMetadata: {
           contentType: 'text/html; charset=utf-8',
-          contentEncoding,
         },
         customMetadata: {
           userId,
           bookmarkId,
           version: version.toString(),
           title,
-          originalSize: originalSize.toString(),
-          compressed: contentEncoding ? 'true' : 'false',
+          fileSize: htmlBytes.length.toString(),
         },
       })
       const snapshotId = generateNanoId()
@@ -250,7 +211,7 @@ export const onRequestPost: PagesFunction<Env, 'id', AuthContext>[] = [
           version,
           contentHash,
           r2Key,
-          fileSize,
+          htmlBytes.length,
           url,
           title,
           now,
@@ -279,13 +240,31 @@ export const onRequestPost: PagesFunction<Env, 'id', AuthContext>[] = [
       // 检查并清理旧快照
       await cleanupOldSnapshots(db, bucket, bookmarkId, userId)
 
+      // 生成签名 URL（24 小时有效）
+      const { signature, expires } = await generateSignedUrl(
+        {
+          userId,
+          resourceId: snapshotId,
+          expiresIn: 24 * 3600,
+          action: 'view',
+        },
+        context.env.JWT_SECRET
+      )
+
+      // 构建签名 URL
+      const baseUrl = new URL(context.request.url).origin
+      const viewUrl = `${baseUrl}/api/v1/bookmarks/${bookmarkId}/snapshots/${snapshotId}/view?sig=${signature}&exp=${expires}&u=${userId}&a=view`
+
       return success({
         snapshot: {
           id: snapshotId,
           version,
-          file_size: fileSize,
+          file_size: htmlBytes.length,
           content_hash: contentHash,
+          snapshot_title: title,
+          is_latest: true,
           created_at: now,
+          view_url: viewUrl,
         },
         message: 'Snapshot created successfully',
       })
