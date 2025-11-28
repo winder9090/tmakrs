@@ -399,55 +399,66 @@ export function Popup() {
 
           {currentPage && (
             <section className="rounded-xl border border-gray-200 bg-white p-3.5 shadow-lg">
-              <div className="mb-2.5 flex items-center justify-end gap-2">
+              <div className="mb-2.5 flex items-center justify-center gap-2">
+                  {/* 公开/隐私切换 */}
                   <button
                     type="button"
                     onClick={() => setIsPublic(!isPublic)}
-                    className={`rounded-lg border px-3 py-1 text-xs font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 ${
+                    className={`w-9 h-9 rounded-lg border flex items-center justify-center transition-all duration-150 focus:outline-none focus-visible:ring-2 ${
                       isPublic
-                        ? 'border-emerald-400 bg-emerald-50 text-emerald-700 shadow-sm focus-visible:ring-emerald-300'
-                        : 'border-blue-400 bg-blue-50 text-blue-700 shadow-sm focus-visible:ring-blue-300'
+                        ? 'border-emerald-400 bg-emerald-50 text-emerald-600 shadow-sm focus-visible:ring-emerald-300'
+                        : 'border-blue-400 bg-blue-50 text-blue-600 shadow-sm focus-visible:ring-blue-300'
                     }`}
-                    title={isPublic ? '点击切换为隐私' : '点击切换为公开'}
+                    title={isPublic ? '当前：公开，点击切换为隐私' : '当前：隐私，点击切换为公开'}
                   >
-                    <svg className="inline-block w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       {isPublic ? (
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       ) : (
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                       )}
                     </svg>
-                    {isPublic ? '公开' : '隐私'}
                   </button>
 
+                  {/* 封面图切换 */}
                   <button
                     type="button"
                     onClick={handleToggleThumbnail}
                     disabled={!currentPage.thumbnail}
-                    className={`rounded-lg border px-3 py-1 text-xs font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 ${
+                    className={`w-9 h-9 rounded-lg border flex items-center justify-center transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 ${
                       includeThumbnail
-                        ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-                        : 'border-amber-400 bg-amber-50 text-amber-700 shadow-sm'
+                        ? 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
+                        : 'border-amber-400 bg-amber-50 text-amber-600 shadow-sm'
                     } ${!currentPage.thumbnail ? 'cursor-not-allowed opacity-40' : ''}`}
+                    title={includeThumbnail ? '当前：包含封面图，点击忽略' : '当前：已忽略封面图，点击恢复'}
                   >
-                    {includeThumbnail ? '忽略封面图' : '恢复封面图'}
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      {includeThumbnail ? (
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      ) : (
+                        <>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
+                        </>
+                      )}
+                    </svg>
                   </button>
 
+                  {/* 快照切换 */}
                   <button
                     type="button"
                     onClick={() => setCreateSnapshot(!createSnapshot)}
-                    className={`rounded-lg border px-3 py-1 text-xs font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 ${
+                    className={`w-9 h-9 rounded-lg border flex items-center justify-center transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 ${
                       createSnapshot
-                        ? 'border-purple-400 bg-purple-50 text-purple-700 shadow-sm'
-                        : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                        ? 'border-purple-400 bg-purple-50 text-purple-600 shadow-sm'
+                        : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
                     }`}
-                    title="保存网页快照"
+                    title={createSnapshot ? '当前：创建快照，点击取消' : '当前：不创建快照，点击启用'}
                   >
-                    <svg className="inline-block w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                       <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
-                    {createSnapshot ? '创建快照' : '不创建快照'}
                   </button>
               </div>
               <div className="mb-2.5">
