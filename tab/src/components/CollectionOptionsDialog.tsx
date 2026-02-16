@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Folder, Plus, List } from 'lucide-react';
+import { Folder, Plus, List, X } from 'lucide-react';
 import { t } from '@/lib/i18n';
-import type { TMarksTabGroup } from '@/lib/api/tmarks/tab-groups';
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
+import { useScrollLock } from '@/lib/hooks/useScrollLock';
+import type { TMarksTabGroup } from '@/lib/api/tab-groups';
 
 export interface CollectionOption {
   mode: 'new' | 'existing' | 'folder';
@@ -30,9 +32,19 @@ export function CollectionOptionsDialog({
   const [newGroupTitle, setNewGroupTitle] = useState<string>('');
   const [newFolderTitle, setNewFolderTitle] = useState<string>('');
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+
+  // 焦点陷阱和滚动锁定
+  const dialogRef = useFocusTrap(true);
+  useScrollLock(true);
 
   const folders = groups.filter(g => g.is_folder === 1);
   const regularGroups = groups.filter(g => g.is_folder === 0);
+
+  useEffect(() => {
+    // 淡入动画
+    requestAnimationFrame(() => setIsVisible(true));
+  }, []);
 
   useEffect(() => {
     if (mode === 'existing' && regularGroups.length > 0 && !selectedGroupId) {
@@ -96,13 +108,45 @@ export function CollectionOptionsDialog({
     onConfirm(option);
   };
 
+  const handleClose = () => {
+    setIsVisible(false);
+    setTimeout(onCancel, 150);
+  };
+
   return (
-    <div className="fixed inset-0 bg-[color:var(--tab-overlay)] flex items-center justify-center z-50 p-4">
-      <div className="bg-[color:var(--tab-surface)] rounded-2xl shadow-2xl w-full max-w-[680px] max-h-[520px] flex flex-col overflow-hidden">
+    <div 
+      className={`fixed inset-0 flex items-center justify-center z-50 p-4 backdrop-blur-sm transition-all duration-150 ${
+        isVisible ? 'bg-[color:var(--tab-overlay)] opacity-100' : 'bg-transparent opacity-0'
+      }`}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) handleClose();
+      }}
+    >
+      <div 
+        ref={dialogRef as React.RefObject<HTMLDivElement>}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="collection-title"
+        className={`bg-[color:var(--tab-surface)] rounded-2xl shadow-2xl w-full max-w-[680px] max-h-[520px] flex flex-col overflow-hidden transition-all duration-150 ${
+          isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+        }`}
+      >
         {/* Header */}
         <div className="px-5 py-4 border-b border-[color:var(--tab-border)] bg-[color:var(--tab-message-info-bg)]">
-          <h2 className="text-base font-bold text-[var(--tab-text)]">{t('collection_title')}</h2>
-          <p className="text-xs text-[var(--tab-text-muted)] mt-0.5">{t('collection_selected', String(tabCount))}</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 id="collection-title" className="text-base font-bold text-[var(--tab-text)]">{t('collection_title')}</h2>
+              <p className="text-xs text-[var(--tab-text-muted)] mt-0.5">{t('collection_selected', String(tabCount))}</p>
+            </div>
+            <button
+              onClick={handleClose}
+              disabled={isCreatingFolder}
+              className="p-1.5 rounded-lg hover:bg-[color:var(--tab-surface-muted)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label={t('options_close')}
+            >
+              <X className="w-5 h-5 text-[var(--tab-text-muted)]" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
@@ -267,7 +311,7 @@ export function CollectionOptionsDialog({
         {/* Footer */}
         <div className="px-5 py-3 border-t border-[color:var(--tab-border)] bg-[color:var(--tab-surface-muted)] flex justify-end space-x-2.5">
           <button
-            onClick={onCancel}
+            onClick={handleClose}
             disabled={isCreatingFolder}
             className="px-4 py-2 text-xs font-medium text-[var(--tab-text)] bg-[color:var(--tab-surface)] border border-[color:var(--tab-border-strong)] rounded-lg hover:bg-[color:var(--tab-surface-muted)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >

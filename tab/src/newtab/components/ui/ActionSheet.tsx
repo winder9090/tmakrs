@@ -5,6 +5,8 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { t } from '@/lib/i18n';
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
+import { useScrollLock } from '@/lib/hooks/useScrollLock';
 import { Z_INDEX } from '../../constants/z-index';
 
 interface ActionSheetAction {
@@ -32,6 +34,10 @@ export function ActionSheet({
 }: ActionSheetProps) {
   const [isVisible, setIsVisible] = useState(false);
   const finalCancelText = cancelText || t('btn_cancel');
+
+  // 焦点陷阱和滚动锁定
+  const dialogRef = useFocusTrap(isOpen);
+  useScrollLock(isOpen);
 
   useEffect(() => {
     if (isOpen) {
@@ -71,7 +77,9 @@ export function ActionSheet({
       onClick={handleCancel}
     >
       <div
+        ref={dialogRef as React.RefObject<HTMLDivElement>}
         role="dialog"
+        aria-modal="true"
         aria-label={title || t('ui_action')}
         className={`w-full max-w-[400px] transition-all duration-300 ease-out ${
           isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'

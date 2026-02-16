@@ -5,6 +5,8 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { t } from '@/lib/i18n';
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
+import { useScrollLock } from '@/lib/hooks/useScrollLock';
 import { Z_INDEX } from '../../constants/z-index';
 
 interface ConfirmModalProps {
@@ -31,6 +33,10 @@ export function ConfirmModal({
   const [isVisible, setIsVisible] = useState(false);
   const finalConfirmText = confirmText || t('btn_confirm');
   const finalCancelText = cancelText || t('btn_cancel');
+
+  // 焦点陷阱和滚动锁定
+  const dialogRef = useFocusTrap(isOpen);
+  useScrollLock(isOpen);
 
   useEffect(() => {
     if (isOpen) {
@@ -70,7 +76,9 @@ export function ConfirmModal({
       onClick={handleCancel}
     >
       <div
+        ref={dialogRef as React.RefObject<HTMLDivElement>}
         role="alertdialog"
+        aria-modal="true"
         aria-labelledby="confirm-title"
         aria-describedby="confirm-message"
         className={`relative w-full max-w-[280px] rounded-[14px] overflow-hidden transition-all duration-200 ease-out ${

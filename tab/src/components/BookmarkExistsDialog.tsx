@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
+import { X } from 'lucide-react';
 import { StorageService } from '@/lib/utils/storage';
 import { LoadingMessage } from '@/components/LoadingMessage';
 import { t } from '@/lib/i18n';
+import { useFocusTrap } from '@/lib/hooks/useFocusTrap';
+import { useScrollLock } from '@/lib/hooks/useScrollLock';
 
 interface ExistingBookmark {
   id: string;
@@ -36,6 +39,11 @@ export function BookmarkExistsDialog({
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMessage, setProcessingMessage] = useState('');
   const [descriptionInput, setDescriptionInput] = useState(bookmark.description || '');
+  const [isVisible, setIsVisible] = useState(false);
+
+  // 焦点陷阱和滚动锁定
+  const dialogRef = useFocusTrap(true);
+  useScrollLock(true);
 
   useEffect(() => {
     // Load TMarks URL from storage
@@ -46,6 +54,9 @@ export function BookmarkExistsDialog({
         setTmarksUrl(baseUrl);
       }
     });
+
+    // 淡入动画
+    requestAnimationFrame(() => setIsVisible(true));
   }, []);
 
   const existingTagNames = bookmark.tags.map(t => t.name);
@@ -121,8 +132,20 @@ export function BookmarkExistsDialog({
     }
   };
 
+  const handleClose = () => {
+    setIsVisible(false);
+    setTimeout(onCancel, 150);
+  };
+
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-[color:var(--tab-overlay)] backdrop-blur-sm animate-in fade-in duration-200">
+    <div 
+      className={`fixed inset-0 z-40 flex items-center justify-center backdrop-blur-sm transition-all duration-150 ${
+        isVisible ? 'bg-[color:var(--tab-overlay)] opacity-100' : 'bg-transparent opacity-0'
+      }`}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) handleClose();
+      }}
+    >
       {/* Loading Message */}
       {isProcessing && (
         <div className="absolute top-4 left-0 right-0 px-4 z-50">
@@ -130,7 +153,15 @@ export function BookmarkExistsDialog({
         </div>
       )}
       
-        <div className="bg-[color:var(--tab-surface)] rounded-xl shadow-2xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+      <div 
+        ref={dialogRef as React.RefObject<HTMLDivElement>}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dialog-title"
+        className={`bg-[color:var(--tab-surface)] rounded-xl shadow-2xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto transition-all duration-150 ${
+          isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+        }`}
+      >
         {/* Header */}
         <div className="sticky top-0 bg-[color:var(--tab-surface)] border-b border-[color:var(--tab-border)] px-6 py-4 rounded-t-xl">
           <div className="flex items-start gap-3">
@@ -150,13 +181,21 @@ export function BookmarkExistsDialog({
               </svg>
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-[var(--tab-text)]">
+              <h3 id="dialog-title" className="text-lg font-semibold text-[var(--tab-text)]">
                 {t('bookmark_exists_title')}
               </h3>
               <p className="text-sm text-[var(--tab-text-muted)] mt-1">
                 {t('bookmark_exists_desc')}
               </p>
             </div>
+            <button
+              onClick={handleClose}
+              disabled={isProcessing}
+              className="p-1.5 rounded-lg hover:bg-[color:var(--tab-surface-muted)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label={t('options_close')}
+            >
+              <X className="w-5 h-5 text-[var(--tab-text-muted)]" />
+            </button>
           </div>
         </div>
 
@@ -372,7 +411,7 @@ export function BookmarkExistsDialog({
         {/* Footer */}
         <div className="sticky bottom-0 bg-[color:var(--tab-surface-muted)] border-t border-[color:var(--tab-border)] px-6 py-4 rounded-b-xl flex gap-3">
           <button
-            onClick={onCancel}
+            onClick={handleClose}
             disabled={isProcessing}
             className="flex-1 px-4 py-2.5 text-sm font-medium text-[var(--tab-text)] bg-[color:var(--tab-surface)] border border-[color:var(--tab-border-strong)] rounded-lg hover:bg-[color:var(--tab-surface-muted)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
